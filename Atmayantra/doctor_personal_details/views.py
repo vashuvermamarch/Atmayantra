@@ -5,7 +5,7 @@ from .serializers import DoctorPersonalDetailsSerializer, DoctorPersonalDetailsW
 from rest_framework.parsers import MultiPartParser, FormParser
 import base64
 from django.utils import timezone
-from Atmayantra.Atmayantra.utils import api_response
+from Atmayantra.utils import api_response
 
 class DoctorPersonalDetailsViewSet(viewsets.ModelViewSet):
     queryset = DoctorPersonalDetails.objects.all()

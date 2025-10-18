@@ -6,7 +6,7 @@ import base64
 from django.utils import timezone
 from .models import DoctorCertification
 from .serializers import DoctorCertificationReadSerializer, DoctorCertificationWriteSerializer
-from Atmayantra.Atmayantra.utils import api_response
+from Atmayantra.utils import api_response
 
 class DoctorCertificationViewSet(viewsets.ModelViewSet):
     queryset = DoctorCertification.objects.all()

@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from .models import Contact
 from .serializers import ContactSerializer
 # 1. Import the api_response helper
-from Atmayantra.Atmayantra.utils import api_response
+from Atmayantra.utils import api_response
 import os
 
 class ContactViewSet(viewsets.ModelViewSet):

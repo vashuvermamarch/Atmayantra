@@ -7,7 +7,7 @@ from django.utils import timezone
 from datetime import datetime
 from .models import DoctorDocument
 from .serializers import DoctorDocumentSerializer
-from Atmayantra.Atmayantra.utils import api_response
+from Atmayantra.utils import api_response
 
 class DoctorDocumentViewSet(viewsets.ModelViewSet):
     queryset = DoctorDocument.objects.all()

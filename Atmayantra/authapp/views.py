@@ -6,7 +6,7 @@ from .serializers import UserSerializer
 from .models import User
 from random import randint
 from rest_framework_simplejwt.tokens import RefreshToken
-from Atmayantra.Atmayantra.utils import api_response
+from Atmayantra.utils import api_response
 
 class AuthViewSet(viewsets.GenericViewSet):
     serializer_class = UserSerializer

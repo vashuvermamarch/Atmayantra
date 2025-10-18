@@ -10,7 +10,7 @@ from doctor_documents.models import DoctorDocument
 from doctor_personal_details.models import DoctorPersonalDetails
 from .models import DoctorBankDetails
 from .serializers import DoctorBankDetailsReadSerializer, DoctorBankDetailsWriteSerializer
-from Atmayantra.Atmayantra.utils import api_response
+from Atmayantra.utils import api_response
 import logging
 
 logger = logging.getLogger(__name__)
