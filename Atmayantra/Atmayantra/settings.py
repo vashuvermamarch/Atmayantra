@@ -75,7 +75,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'Atmayantra.urls'
+ROOT_URLCONF = 'Atmayantra.Atmayantra.urls'
 
 TEMPLATES = [
     {
