@@ -1,1 +1,1 @@
-web: gunicorn Atmayantra.wsgi
+web: gunicorn Atmayantra.Atmayantra.wsgi
