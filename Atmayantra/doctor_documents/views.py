@@ -53,7 +53,7 @@ class DoctorDocumentViewSet(viewsets.ModelViewSet):
         request.session['doctor_registration_data'] = registration_data
         request.session.modified = True
 
-        return api_response(True, "Step 3 of 4: Document added. Add more or proceed to bank details.")
+        return api_response(True, "Step 3 of 4: Document added. Add more or proceed to bank details.", validated_data)
 
     def list(self, request, *args, **kwargs):
         contact_number = self.kwargs.get('contact_number')

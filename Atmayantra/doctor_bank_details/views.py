@@ -5,6 +5,7 @@ from django.http import Http404
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser
 from doctor_certification.models import DoctorCertification
 from doctor_documents.models import DoctorDocument
 from doctor_personal_details.models import DoctorPersonalDetails
@@ -16,6 +17,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
+    parser_classes = (MultiPartParser, FormParser)
     queryset = DoctorBankDetails.objects.all()
     lookup_field = 'doctor__contact_number'
     lookup_url_kwarg = 'contact_number'
@@ -88,7 +90,15 @@ class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
 
         del request.session['doctor_registration_data']
         logger.info(f"Successfully completed doctor registration for {doctor.contact_number}")
-        return api_response(True, "Step 4 of 4: Doctor registration complete! All details saved.", status_code=status.HTTP_201_CREATED)
+        
+        read_serializer = DoctorPersonalDetailsSerializer(doctor)
+        
+        return api_response(
+            success=True, 
+            message="Step 4 of 4: Doctor registration complete! All details saved.", 
+            data=read_serializer.data,
+            status_code=status.HTTP_201_CREATED
+        )
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()

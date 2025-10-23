@@ -11,24 +11,17 @@ class ContactViewSet(viewsets.ModelViewSet):
     serializer_class = ContactSerializer
     lookup_field = 'phone_no'
 
-    # 2. Example: Using api_response for a successful creation (HTTP 201)
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return api_response(
-                success=True,
-                message="Contact created successfully.",
-                data=serializer.data,
-                status_code=status.HTTP_201_CREATED
-            )
-        # 3. Example: Using api_response for a validation error (HTTP 400)
-        return api_response(
-            success=False,
-            message="Invalid data provided.",
-            data=serializer.errors,
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        response_data = {
+            "status": "success",
+            "message": "Contact created successfully.",
+            "data": serializer.data
+        }
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
     # 4. Example: A custom action that returns a sample error (HTTP 404)
     @action(detail=False, methods=['get'])

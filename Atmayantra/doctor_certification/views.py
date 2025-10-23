@@ -68,7 +68,7 @@ class DoctorCertificationViewSet(viewsets.ModelViewSet):
         request.session['doctor_registration_data'] = registration_data
         request.session.modified = True
 
-        return api_response(True, "Step 2 of 4 complete: Certification details received. Proceed to document submission.")
+        return api_response(True, "Step 2 of 4 complete: Certification details received. Proceed to document submission.", validated_data)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)

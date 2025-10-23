@@ -42,9 +42,9 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         serializer = UserSerializer(data=stored['data'])
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
             cache.delete(f'otp_{phone_number}')
-            return api_response(True, "User registered successfully.", status_code=status.HTTP_201_CREATED)
+            return api_response(True, "User registered successfully.", serializer.data, status_code=status.HTTP_201_CREATED)
         return api_response(False, "An error occurred during registration.", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'])
