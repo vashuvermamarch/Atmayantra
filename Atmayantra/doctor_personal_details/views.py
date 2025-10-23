@@ -40,7 +40,7 @@ class DoctorPersonalDetailsViewSet(viewsets.ModelViewSet):
             'start_time': timezone.now().isoformat()
         }
 
-        return api_response(True, "Step 1 of 4 complete: Personal details received. Proceed to certification details.")
+        return api_response(True, "Step 1 of 4 complete: Personal details received. Proceed to certification details.", validated_data)
 
     @action(detail=False, methods=['get'], url_path='get-all-doctors')
     def get_all_doctors(self, request):
