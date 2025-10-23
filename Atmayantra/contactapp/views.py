@@ -3,9 +3,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import Contact
 from .serializers import ContactSerializer
-# 1. Import the api_response helper
 from Atmayantra.utils import api_response
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ContactViewSet(viewsets.ModelViewSet):
     queryset = Contact.objects.all()
@@ -14,15 +16,13 @@ class ContactViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return api_response(False, "Invalid data provided.", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
+        
         self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        response_data = {
-            "status": "success",
-            "message": "Contact created successfully.",
-            "data": serializer.data
-        }
-        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
+        logger.info(f"Contact created with ID: {serializer.instance.id}")
+        
+        return api_response(True, "Contact created successfully.", serializer.data, status_code=status.HTTP_201_CREATED)
 
     # 4. Example: A custom action that returns a sample error (HTTP 404)
     @action(detail=False, methods=['get'])

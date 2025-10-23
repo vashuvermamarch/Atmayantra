@@ -7,6 +7,9 @@ from .models import User
 from random import randint
 from rest_framework_simplejwt.tokens import RefreshToken
 from Atmayantra.utils import api_response
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AuthViewSet(viewsets.GenericViewSet):
     serializer_class = UserSerializer
@@ -43,6 +46,7 @@ class AuthViewSet(viewsets.GenericViewSet):
         serializer = UserSerializer(data=stored['data'])
         if serializer.is_valid():
             user = serializer.save()
+            logger.info(f"User created with ID: {user.id}")
             cache.delete(f'otp_{phone_number}')
             return api_response(True, "User registered successfully.", serializer.data, status_code=status.HTTP_201_CREATED)
         return api_response(False, "An error occurred during registration.", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
