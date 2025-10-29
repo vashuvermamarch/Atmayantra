@@ -1,1 +1,1 @@
-web: cd Atmayantra && gunicorn Atmayantra.wsgi
+web: cd Atmayantra && gunicorn Atmayantra.wsgi --bind 0.0.0.0:$PORT
