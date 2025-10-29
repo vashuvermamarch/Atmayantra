@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: "./build.sh"
-    startCommand: "gunicorn Atmayantra.wsgi:application"
+    startCommand: "gunicorn Atmayantra.wsgi:application --chdir Atmayantra"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
