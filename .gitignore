@@ -1,0 +1,13 @@
+# Environments
+.env
+venv/
+/venv/
+
+# Django
+*.log
+db.sqlite3
+
+# Python
+*.pyc
+__pycache__/
+.pytest_cache/

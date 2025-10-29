@@ -1,4 +1,5 @@
 from rest_framework.decorators import api_view, parser_classes
+from .decorators import admin_login_required
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
@@ -113,7 +114,7 @@ def login_request(request):
 
 
 # -----------------------------------------------------------
-# STEP 4: Verify Login OTP → Return JWT
+# STEP 4: Verify Login OTP → Return ACCESS + REFRESH Tokens
 # -----------------------------------------------------------
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
@@ -133,49 +134,83 @@ def verify_login_otp(request):
 
     cache.delete(f"login_otp_{contact_number}")
 
-    # Get user and generate JWT token
+    # Get user and generate JWT tokens
     try:
         user = AdminUser.objects.get(contact_number=contact_number)
     except AdminUser.DoesNotExist:
         return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    payload = {
+    access_payload = {
         'contact_number': user.contact_number,
         'name': user.name,
         'email': user.email,
-        'exp': datetime.datetime.utcnow() + settings.JWT_EXP_DELTA
+        'type': 'access',
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=15)  # short lifespan
     }
-    token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    refresh_payload = {
+        'contact_number': user.contact_number,
+        'type': 'refresh',
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)  # long lifespan
+    }
+
+    access_token = jwt.encode(access_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    refresh_token = jwt.encode(refresh_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     return Response({
         'message': 'Login successful!',
-        'token': token
+        'access_token': access_token,
+        'refresh_token': refresh_token
     }, status=status.HTTP_200_OK)
 
 
 # -----------------------------------------------------------
-# STEP 5: Decode JWT Token (GET request)
+# STEP 5: Refresh Access Token using Refresh Token
 # -----------------------------------------------------------
-@api_view(['GET'])
-def decode_token(request):
-    # Try getting token from Authorization header or query param
-    auth_header = request.headers.get('Authorization')
-    token = None
-
-    # Option 1: Bearer token from header
-    if auth_header and auth_header.startswith('Bearer '):
-        token = auth_header.split(' ')[1]
-    # Option 2: token from query parameter
-    elif request.query_params.get('token'):
-        token = request.query_params.get('token')
-
-    if not token:
-        return Response({'error': 'Authorization token missing.'}, status=status.HTTP_400_BAD_REQUEST)
+@api_view(['POST'])
+def refresh_token(request):
+    refresh_token = request.data.get('refresh_token')
+    if not refresh_token:
+        return Response({'error': 'Refresh token required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        decoded = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        return Response({'decoded_data': decoded}, status=status.HTTP_200_OK)
+        decoded = jwt.decode(refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        if decoded.get('type') != 'refresh':
+            return Response({'error': 'Invalid token type.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Generate a new short-lived access token
+        new_access_payload = {
+            'contact_number': decoded['contact_number'],
+            'type': 'access',
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+        }
+        new_access_token = jwt.encode(new_access_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+        return Response({
+            'access_token': new_access_token
+        }, status=status.HTTP_200_OK)
+
     except jwt.ExpiredSignatureError:
-        return Response({'error': 'Token has expired.'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Refresh token expired. Please log in again.'}, status=status.HTTP_401_UNAUTHORIZED)
     except jwt.InvalidTokenError:
-        return Response({'error': 'Invalid token.'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Invalid refresh token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+from .decorators import admin_login_required
+
+# -----------------------------------------------------------
+# STEP 6: Decode JWT Token (GET request)
+# -----------------------------------------------------------
+@api_view(['GET'])
+@admin_login_required
+def decode_token(request):
+    # The admin_login_required decorator handles token decoding and user authentication.
+    # If the token is valid, the authenticated user is available in request.admin_user.
+    
+    decoded_data = {
+        'contact_number': request.admin_user.contact_number,
+        'name': request.admin_user.name,
+        'email': request.admin_user.email,
+    }
+    
+    return Response({'decoded_data': decoded_data}, status=status.HTTP_200_OK)
