@@ -43,12 +43,12 @@ def signup(request):
         'password': password
     }}, timeout=settings.OTP_EXPIRY_MINUTES * 60)
 
-    return Response({
+    return Response({'response':{
         'message': 'OTP generated successfully (valid for 15 minutes)',
         'otp': otp,
         'contact_number': contact_number,
         'email': email
-    }, status=status.HTTP_200_OK)
+    }}, status=status.HTTP_200_OK)
 
 
 # -----------------------------------------------------------
@@ -79,7 +79,7 @@ def verify_signup(request):
     )
     cache.delete(f"signup_otp_{contact_number}")
 
-    return Response({'message': 'Signup successful!'}, status=status.HTTP_201_CREATED)
+    return Response({'response':{'message': 'Signup successful!'}}, status=status.HTTP_201_CREATED)
 
 
 # -----------------------------------------------------------
@@ -105,12 +105,12 @@ def login_request(request):
     otp = str(random.randint(100000, 999999))
     cache.set(f"login_otp_{contact_number}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
 
-    return Response({
+    return Response({'response':{
         'message': 'Login OTP generated successfully (valid for 15 minutes)',
         'contact_number': admin_user.contact_number,
         'email': admin_user.email,
         'otp': otp
-    }, status=status.HTTP_200_OK)
+    }}, status=status.HTTP_200_OK)
 
 
 # -----------------------------------------------------------
@@ -157,11 +157,11 @@ def verify_login_otp(request):
     access_token = jwt.encode(access_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     refresh_token = jwt.encode(refresh_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
-    return Response({
+    return Response({'response':{
         'message': 'Login successful!',
         'access_token': access_token,
         'refresh_token': refresh_token
-    }, status=status.HTTP_200_OK)
+    }}, status=status.HTTP_200_OK)
 
 
 # -----------------------------------------------------------
@@ -214,3 +214,5 @@ def decode_token(request):
     }
     
     return Response({'decoded_data': decoded_data}, status=status.HTTP_200_OK)
+
+# Force reload
