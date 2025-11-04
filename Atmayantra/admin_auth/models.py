@@ -6,6 +6,7 @@ class AdminUser(models.Model):
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=255)
     is_verified = models.BooleanField(default=False)  # becomes True after OTP verification
+    refresh_token = models.TextField(null=True, blank=True) # New field
 
     def __str__(self):
         return f"{self.name} ({self.contact_number})"

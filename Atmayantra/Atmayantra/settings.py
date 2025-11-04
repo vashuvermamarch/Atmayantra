@@ -21,6 +21,7 @@ load_dotenv()
 JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your_secret_key_here')
 JWT_ALGORITHM = 'HS256'
 JWT_EXP_DELTA = datetime.timedelta(hours=1)  # Token valid for 1 hour
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES = 15
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
