@@ -7,7 +7,7 @@ services:
       pip install -r requirements.txt
       python Atmayantra/manage.py collectstatic --no-input
       python Atmayantra/manage.py migrate
-    startCommand: "gunicorn Atmayantra.Atmayantra.wsgi:application"
+    startCommand: " gunicorn Atmayantra.wsgi:application --chdir Atmayantra"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
