@@ -3,12 +3,11 @@ services:
     name: atmayantra
     env: python
     plan: free
-    rootDir: Atmayantra
     buildCommand: |
-      pip install -r ../requirements.txt
-      python manage.py collectstatic --no-input
-      python manage.py migrate
-    startCommand: "gunicorn Atmayantra.Atmayantra.wsgi:application"
+      pip install -r requirements.txt
+      python Atmayantra/manage.py collectstatic --no-input
+      python Atmayantra/manage.py migrate
+    startCommand: "gunicorn Atmayantra.wsgi:application"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
