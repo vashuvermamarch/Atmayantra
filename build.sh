@@ -14,11 +14,11 @@ python manage.py collectstatic --no-input --clear
 # This is a common fix for inconsistent migration history during deployment.
 python manage.py migrate || {
   echo "Initial migration failed. Faking problematic migrations..."
-  # 1. Reset the state for the app with the missing table.
-  python manage.py migrate --fake doctor_personal_details zero
-  # 2. Apply migrations for ONLY that app to bring it to a consistent state.
-  python manage.py migrate doctor_personal_details
-  echo "Recovery for doctor_personal_details complete. Retrying migrations for all other apps..."
-  # 3. Run a final migration for any remaining apps.
+  # The database is in an inconsistent state. We will "fake" the initial
+  # migrations for all apps to align Django's state with the database.
+  python manage.py migrate --fake-initial
+  echo "Faking initial migrations complete. Retrying full migration..."
+  # Now, run migrate again. It will skip the faked initial migrations
+  # and apply any subsequent ones.
   python manage.py migrate
 }
