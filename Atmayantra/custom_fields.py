@@ -9,7 +9,6 @@ class Base64StringFileField(serializers.Field):
     containing the base64 string, filename, and content type.
     """
     def to_internal_value(self, data):
-        import base64
         # data is an InMemoryUploadedFile object
         try:
             content = base64.b64encode(data.read()).decode('utf-8')
