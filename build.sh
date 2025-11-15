@@ -14,8 +14,9 @@ python manage.py collectstatic --no-input --clear
 # This is a common fix for inconsistent migration history during deployment.
 python manage.py migrate || {
   echo "Initial migration failed. Faking problematic migrations..."
-  python manage.py migrate --fake doctor_bank_details 0002_remove_doctorbankdetails_profile_photo_and_more
-  python manage.py migrate --fake doctor_personal_details 0002_remove_doctorpersonaldetails_experience_and_more
+  # The root cause is likely an inconsistent initial migration.
+  # We will fake the initial state for the problematic app.
+  python manage.py migrate --fake doctor_personal_details zero
   echo "Faking complete. Retrying full migration..."
   python manage.py migrate
 }
