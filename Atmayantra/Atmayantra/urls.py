@@ -16,13 +16,21 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('authapp.urls')),
-    path('contact-us/', include('contactapp.urls')),
-    path('doctors_personal_details/', include('doctor_personal_details.urls')),
-    path('doctors_certifications/', include('doctor_certification.urls')),
-    path('doctors_Documents/', include('doctor_documents.urls')),
-    path('doctors_bankdetails/', include('doctor_bank_details.urls')),
+    path('api/', include([
+        path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+        path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+        path('', include('authapp.urls')),
+        path('contact-us/', include('contactapp.urls')),
+        path('doctors/personal-details/', include('doctor_personal_details.urls')),
+        path('doctors/certifications/', include('doctor_certification.urls')),
+        path('doctors/documents/', include('doctor_documents.urls')),
+        path('doctors/bank-details/', include('doctor_bank_details.urls')),
+    ]))
 ]

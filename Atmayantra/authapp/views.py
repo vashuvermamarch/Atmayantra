@@ -2,8 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.core.cache import cache
-from .serializers import UserSerializer
-from .models import User
+from .serializers import UserSerializer 
+from .models import User, UserRefreshToken, UserManager
 from random import randint
 from rest_framework_simplejwt.tokens import RefreshToken
 from Atmayantra.utils import api_response
@@ -79,6 +79,10 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         user = User.objects.get(id=stored['user_id'])
         refresh = RefreshToken.for_user(user)
+
+        # Store the refresh token in the database
+        UserRefreshToken.objects.create(user=user, refresh_token=str(refresh))
+
         cache.delete(f'login_otp_{phone_number}')
 
         token_data = {
@@ -86,6 +90,23 @@ class AuthViewSet(viewsets.GenericViewSet):
             'access': str(refresh.access_token),
         }
         return api_response(True, "Login successful.", token_data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def logout(self, request):
+        """
+        Logs the user out by deleting the specific refresh token from the database.
+        The client must send its refresh token in the request body.
+        """
+        refresh_token = request.data.get("refresh")
+        if not refresh_token:
+            return api_response(False, "Refresh token is required.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = UserRefreshToken.objects.get(user=request.user, refresh_token=refresh_token)
+            token.delete()
+            return api_response(True, "Logout successful.")
+        except UserRefreshToken.DoesNotExist:
+            return api_response(False, "Invalid refresh token.", status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def protected_view(self, request):
@@ -95,3 +116,22 @@ class AuthViewSet(viewsets.GenericViewSet):
             "user_type": user.user_type
         }
         return api_response(True, "User is authenticated.", user_data)
+
+    @action(detail=False, methods=['get'], url_path=r'user-data/(?P<phone_number>[^/.]+)')
+    def user_data(self, request, phone_number=None):
+        """
+        Returns the username and phone number for a given phone number.
+        This endpoint does not require authentication.
+        """
+        if not phone_number:
+            return api_response(False, "Phone number not provided in URL.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(phone_number=phone_number)
+            data = {
+                'username': user.username,
+                'phone_number': user.phone_number
+            }
+            return api_response(True, "User data retrieved successfully.", data)
+        except User.DoesNotExist:
+            return api_response(False, "User with this phone number not found.", status_code=status.HTTP_404_NOT_FOUND)

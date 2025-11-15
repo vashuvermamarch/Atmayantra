@@ -1,14 +1,9 @@
 from django.urls import path
-from .views import DoctorDocumentViewSet
+from .views import DoctorDocumentView, DoctorDocumentDownloadView
 
 urlpatterns = [
-    path('documents/create/', DoctorDocumentViewSet.as_view({'post': 'create'}), name='document-create'),
-    path('documents/<str:contact_number>/', DoctorDocumentViewSet.as_view({'get': 'list'}), name='document-list'),
-    path('documents/<str:contact_number>/<int:pk>/', DoctorDocumentViewSet.as_view({
-        'get': 'retrieve',
-        'put': 'update',
-        'patch': 'partial_update',
-        'delete': 'destroy'
-    }), name='document-detail'),
-    path('documents/<str:contact_number>/<int:pk>/file/', DoctorDocumentViewSet.as_view({'get': 'file'}), name='document-file'),
+    path('', DoctorDocumentView.as_view(), name='document-create'),
+    path('<str:contact_number>/', DoctorDocumentView.as_view(), name='document-list'),
+    path('<str:contact_number>/<str:document_id>/', DoctorDocumentView.as_view(), name='document-detail'),
+    path('<str:contact_number>/<str:document_id>/download/', DoctorDocumentDownloadView.as_view(), name='document-download'),
 ]

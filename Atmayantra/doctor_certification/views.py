@@ -1,105 +1,134 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.parsers import MultiPartParser, FormParser
-from django.shortcuts import get_object_or_404
 import base64
-from django.utils import timezone
+from django.http import HttpResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.core.cache import cache
 from .models import DoctorCertification
-from .serializers import DoctorCertificationReadSerializer, DoctorCertificationWriteSerializer
-from Atmayantra.utils import api_response
+from .serializers import DoctorCertificationSerializer
+from doctor_personal_details.models import DoctorPersonalDetails
+from common.permissions import IsAuthenticatedOrPostOnly
 
-class DoctorCertificationViewSet(viewsets.ModelViewSet):
-    queryset = DoctorCertification.objects.all()
-    parser_classes = (MultiPartParser, FormParser)
-    lookup_field = 'contact_number'
 
-    def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
-            return DoctorCertificationWriteSerializer
-        return DoctorCertificationReadSerializer
+class DoctorCertificationView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+    CACHE_TIMEOUT = 86400  # 24 hours
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedOrPostOnly]
 
-    def get_object(self):
-        queryset = self.get_queryset()
-        contact_number = self.kwargs.get(self.lookup_field)
-        obj = get_object_or_404(queryset, doctor__contact_number=contact_number)
-        self.check_object_permissions(self.request, obj)
-        return obj
-
-    def _get_file_response(self, file_content):
-        if not file_content:
-            return api_response(False, "File not found.", status_code=status.HTTP_404_NOT_FOUND)
-        
+    def get_object(self, contact_number):
         try:
-            decoded_file = base64.b64decode(file_content)
-            return api_response(file=decoded_file)
-        except Exception as e:
-            return api_response(False, f'Error processing file: {e}', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def create(self, request, *args, **kwargs):
-        registration_data = request.session.get('doctor_registration_data')
-        if not registration_data or 'personal_details' not in registration_data:
-            return api_response(False, "Step 1 (personal details) must be completed first.", status_code=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            start_time = timezone.datetime.fromisoformat(registration_data['start_time'])
-            if timezone.now() - start_time > timezone.timedelta(days=1):
-                del request.session['doctor_registration_data']
-                return api_response(False, "The registration process has expired. Please start over.", status_code=status.HTTP_400_BAD_REQUEST)
-        except (ValueError, TypeError):
-             return api_response(False, "Invalid session data. Please start over.", status_code=status.HTTP_400_BAD_REQUEST)
-
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            return api_response(False, "Invalid data provided.", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
-        
-        validated_data = serializer.validated_data
-
-        def _encode_file(file):
-            if file:
-                return {"name": file.name, "content": base64.b64encode(file.read()).decode('utf-8')}
+            doctor = DoctorPersonalDetails.objects.get(contact_number=contact_number)
+            return DoctorCertification.objects.get(doctor=doctor)
+        except (DoctorPersonalDetails.DoesNotExist, DoctorCertification.DoesNotExist):
             return None
 
-        validated_data['graduation_certificate'] = _encode_file(validated_data.pop('graduation_certificate', None))
-        validated_data['experience_letter'] = _encode_file(validated_data.pop('experience_letter', None))
-        validated_data['resume_cv'] = _encode_file(validated_data.pop('resume_cv', None))
-        validated_data['license'] = _encode_file(validated_data.pop('license', None))
+    def get(self, request, contact_number):
+        certification = self.get_object(contact_number)
+        if not certification:
+            return Response({"success": False, "message": "Certification not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = DoctorCertificationSerializer(certification)
+        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
 
-        registration_data['certification'] = validated_data
-        request.session['doctor_registration_data'] = registration_data
-        request.session.modified = True
+    def post(self, request, *args, **kwargs):
+        contact_number = request.data.get('doctor')
 
-        return api_response(True, "Step 2 of 4 complete: Certification details received. Proceed to document submission.", validated_data)
+        # Check if personal details from step 1 are in the cache
+        personal_details_cache_key = f"doctor_personal_details_{contact_number}"
+        if not cache.get(personal_details_cache_key):
+            return Response({
+                "success": False, 
+                "message": "Personal details not found in cache. Please complete step 1 first."
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        read_serializer = DoctorCertificationReadSerializer(instance, context={'request': request})
-        return api_response(True, "Certification details updated successfully.", read_serializer.data)
+        serializer = DoctorCertificationSerializer(data=request.data)
+        if serializer.is_valid():
+            # Save to cache instead of database
+            certification_cache_key = f"doctor_certification_{contact_number}"
+            cache.set(certification_cache_key, serializer.validated_data, timeout=self.CACHE_TIMEOUT)
 
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self.perform_destroy(instance)
-        return api_response(True, "Doctor certification successfully deleted.", status_code=status.HTTP_200_OK)
+            return Response({
+                "success": True,
+                "message": "Step 2 of 4: Certification details saved temporarily."
+            }, status=status.HTTP_200_OK)
+        return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'])
-    def download_graduation_certificate(self, request, contact_number=None):
-        certification = self.get_object()
-        return self._get_file_response(certification.graduation_certificate)
+    def put(self, request, contact_number):
+        certification = self.get_object(contact_number)
+        if not certification:
+            return Response({"success": False, "message": "Certification not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    @action(detail=True, methods=['get'])
-    def download_experience_letter(self, request, contact_number=None):
-        certification = self.get_object()
-        return self._get_file_response(certification.experience_letter)
+        serializer = DoctorCertificationSerializer(certification, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "success": True,
+                "message": "Certification updated successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'])
-    def download_resume_cv(self, request, contact_number=None):
-        certification = self.get_object()
-        return self._get_file_response(certification.resume_cv)
+    def patch(self, request, contact_number):
+        certification = self.get_object(contact_number)
+        if not certification:
+            return Response({"success": False, "message": "Certification not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    @action(detail=True, methods=['get'])
-    def download_license(self, request, contact_number=None):
-        certification = self.get_object()
-        return self._get_file_response(certification.license)
+        serializer = DoctorCertificationSerializer(certification, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "success": True,
+                "message": "Certification partially updated successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, contact_number):
+        certification = self.get_object(contact_number)
+        if not certification:
+            return Response({"success": False, "message": "Certification not found."}, status=status.HTTP_404_NOT_FOUND)
+        certification.delete()
+        return Response({"success": True, "message": "Certification deleted successfully."}, status=status.HTTP_200_OK)
+
+
+# ---------- FILE DOWNLOAD VIEWS ----------
+class BaseFileDownloadView(APIView):
+    field_name = None
+    filename = None
+
+    def get(self, request, contact_number):
+        try:
+            doctor = DoctorPersonalDetails.objects.get(contact_number=contact_number)
+            certification = DoctorCertification.objects.get(doctor=doctor)
+            file_data = getattr(certification, self.field_name)
+            if not file_data:
+                return Response({"success": False, "message": f"{self.field_name} not found."}, status=status.HTTP_404_NOT_FOUND)
+            pdf_data = base64.b64decode(file_data)
+            response = HttpResponse(pdf_data, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{self.filename}"'
+            return response
+        except (DoctorPersonalDetails.DoesNotExist, DoctorCertification.DoesNotExist):
+            return Response({"success": False, "message": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class GraduationCertificateDownloadView(BaseFileDownloadView):
+    field_name = 'graduation_certificate'
+    filename = 'graduation_certificate.pdf'
+
+
+class ExperienceLetterDownloadView(BaseFileDownloadView):
+    field_name = 'experience_letter'
+    filename = 'experience_letter.pdf'
+
+
+class ResumeCvDownloadView(BaseFileDownloadView):
+    field_name = 'resume_cv'
+    filename = 'resume_cv.pdf'
+
+
+class LicenseDownloadView(BaseFileDownloadView):
+    field_name = 'license_pdf'
+    filename = 'license.pdf'

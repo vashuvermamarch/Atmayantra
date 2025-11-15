@@ -5,6 +5,5 @@ set -o errexit
 pip install --upgrade pip
 pip install -r requirements.txt
 
-cd Atmayantra
-python manage.py collectstatic --noinput
-python manage.py migrate
+python Atmayantra/manage.py collectstatic --no-input
+python Atmayantra/manage.py migrate

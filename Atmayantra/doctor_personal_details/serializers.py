@@ -1,36 +1,46 @@
 from rest_framework import serializers
-from .models import DoctorPersonalDetails
-import base64
+from .models import DoctorPersonalDetails, DoctorProfilePhoto
+from common.fields import Base64StringFileField
 
-class DoctorPersonalDetailsSerializer(serializers.ModelSerializer):
+class DoctorProfilePhotoSerializer(serializers.ModelSerializer):
+    photo_data = Base64StringFileField(required=True)
+
     class Meta:
-        model = DoctorPersonalDetails
-        fields = '__all__'
+        model = DoctorProfilePhoto
+        fields = ['photo_data']
+
+class DoctorProfilePhotoWriteSerializer(serializers.Serializer):
+    contact_number = serializers.CharField(max_length=15)
+    photo_data = Base64StringFileField(required=True)
+
 
 class DoctorPersonalDetailsWriteSerializer(serializers.ModelSerializer):
-    profile_photo_file = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
         model = DoctorPersonalDetails
-        fields = ['contact_number', 'full_name', 'specialization', 'experience', 'hospital', 'gender', 'email', 'address', 'profile_photo_file', 'profile_photo']
-        extra_kwargs = {
-            'profile_photo': {'read_only': True}
-        }
+        fields = [
+            'contact_number', 'full_name', 'date_of_birth', 'gender',
+            'email', 'state', 'city', 'pincode', 'spoken_language'
+        ]
 
     def create(self, validated_data):
-        profile_photo_file = validated_data.pop('profile_photo_file', None)
-        if profile_photo_file:
-            encoded_string = base64.b64encode(profile_photo_file.read()).decode('utf-8')
-            validated_data['profile_photo'] = encoded_string
-        return super().create(validated_data)
+        # Use update_or_create to handle both creation and updates gracefully.
+        doctor, created = DoctorPersonalDetails.objects.update_or_create(
+            contact_number=validated_data['contact_number'],
+            defaults=validated_data
+        )
+        return doctor
 
     def update(self, instance, validated_data):
-        profile_photo_file = validated_data.pop('profile_photo_file', None)
-        if profile_photo_file:
-            encoded_string = base64.b64encode(profile_photo_file.read()).decode('utf-8')
-            validated_data['profile_photo'] = encoded_string
-        return super().update(instance, validated_data)
+        return self.create(validated_data) # Reuse create logic for simplicity
 
-    def validate_contact_number(self, value):
-        # Strip whitespace from the contact number
-        return value.strip()
+class DoctorPersonalDetailsSerializer(serializers.ModelSerializer):
+    profile_photo = serializers.CharField(source='profile_photo_data.photo_data', read_only=True)
+
+    class Meta:
+        model = DoctorPersonalDetails
+        fields = [
+            'contact_number', 'full_name', 'date_of_birth', 'gender', 'email',
+            'state', 'city', 'pincode', 'spoken_language', 'profile_photo'
+        ]
+        read_only_fields = fields

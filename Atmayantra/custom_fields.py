@@ -1,33 +1,28 @@
-
 import base64
 import uuid
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 
-class Base64FileField(serializers.FileField):
+class Base64StringFileField(serializers.Field):
     """
-    A Django REST Framework field for handling file uploads encoded as Base64.
+    A custom serializer field to handle file uploads and convert them to a dictionary
+    containing the base64 string, filename, and content type.
     """
     def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith('data:'):
-            # Base64 encoded file
-            try:
-                format, datastr = data.split(';base64,')
-                ext = format.split('/')[-1]
-                # Generate a random filename
-                filename = f"{uuid.uuid4()}.{ext}"
-                data = ContentFile(base64.b64decode(datastr), name=filename)
-            except (ValueError, TypeError):
-                self.fail('invalid_file')
-
-        return super().to_internal_value(data)
+        import base64
+        # data is an InMemoryUploadedFile object
+        try:
+            content = base64.b64encode(data.read()).decode('utf-8')
+            return {
+                'content': content,
+                'filename': data.name,
+                'content_type': data.content_type
+            }
+        except Exception as e:
+            raise serializers.ValidationError(f"Failed to encode file to base64: {e}")
 
     def to_representation(self, value):
-        if not value:
-            return None
-        
-        try:
-            with value.open('rb') as f:
-                return base64.b64encode(f.read()).decode()
-        except Exception:
-            return None
+        # This method is not used for writing, but for reading from the database.
+        # The model stores the base64 string in the 'file_data' field.
+        # We will just return the value as is.
+        return value

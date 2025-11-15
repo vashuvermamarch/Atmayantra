@@ -1,0 +1,23 @@
+# .gitattributes
+
+# Set default behavior, in case users don't have core.autocrlf set.
+* text=auto
+
+# Explicitly declare text files you want to always have LF line endings in the repo.
+*.py text
+*.txt text
+*.json text
+*.md text
+*.html text
+*.css text
+*.js text
+*.sh text
+*.yml text
+*.yaml text
+.gitignore text
+.gitattributes text
+Procfile text
+
+# Declare files that should not be touched and treated as binary.
+# *.png binary
+# *.jpg binary
