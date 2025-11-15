@@ -202,6 +202,12 @@ LOGGING = {
 
 
 # CORS configuration
-CORS_ALLOW_ALL_ORIGINS = True
-# For stricter control later:
-# CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]
+# In production, you should set this to False and use CORS_ALLOWED_ORIGINS.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+# Add the domains of your frontend applications here.
+# You can also use environment variables to manage this for different environments.
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000", # Example for local frontend development
+    # "https://your-frontend-app.onrender.com", # Example for your deployed frontend
+]
