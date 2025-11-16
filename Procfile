@@ -1,1 +1,1 @@
-web: cd Atmayantra && gunicorn Atmayantra.wsgi
+web: gunicorn --chdir Atmayantra Atmayantra.wsgi
