@@ -207,9 +207,15 @@ LOGGING = {
 
 # CORS configuration
 if DEBUG:
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
+    # Allow all origins for local development for simplicity
+    CORS_ALLOW_ALL_ORIGINS = True
 else:
-    CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
+    # For production, get allowed origins from environment variables
+    allowed_origins_env = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+    CORS_ALLOWED_ORIGINS = allowed_origins_env.split(',') if allowed_origins_env else []
+
+    # Add your local frontend development server to the list for testing against production
+    CORS_ALLOWED_ORIGINS.extend([
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ])
