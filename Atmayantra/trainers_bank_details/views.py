@@ -1,0 +1,142 @@
+from django.core.cache import cache
+from django.db import transaction
+from django.http import HttpResponse, Http404
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+
+from authapp.decorators import login_required
+
+from trainers_personal_detials.models import TrainerPersonalDetails
+from trainers_certifications.models import TrainerCertification
+from trainers_documents.models import TrainerDocument
+from .models import TrainerBankDetails
+from .serializers import TrainerBankDetailsSerializer
+
+
+CACHE_TTL = 60 * 60 * 24
+
+
+def personal_key(cn): return f"trainer_personal_details_{cn}"
+def cert_key(cn): return f"trainer_certification_{cn}"
+def docs_key(cn): return f"trainer_documents_{cn}"
+
+
+class TrainerBankDetailsViewSet(viewsets.ModelViewSet):
+    serializer_class = TrainerBankDetailsSerializer
+    queryset = TrainerBankDetails.objects.all()
+    permission_classes = [permissions.AllowAny]
+    lookup_field = "trainer"
+
+    # --------------------------------------------
+    # POST — FINAL SUBMIT (NO LOGIN REQUIRED)
+    # --------------------------------------------
+    def create(self, request, *args, **kwargs):
+        contact = request.data.get("trainer")
+        if not contact:
+            return Response({"error": "trainer (contact_number) is required"}, status=400)
+
+        temp_personal = cache.get(personal_key(contact))
+        temp_certs = cache.get(cert_key(contact), [])
+        temp_docs = cache.get(docs_key(contact), [])
+
+        if not temp_personal:
+            return Response({"error": "Step 1 not completed."}, status=400)
+
+        with transaction.atomic():
+
+            trainer = TrainerPersonalDetails.objects.create(
+                contact_number=temp_personal["contact_number"],
+                full_name=temp_personal["full_name"],
+                date_of_birth=temp_personal.get("date_of_birth"),
+                gender=temp_personal.get("gender"),
+                email=temp_personal.get("email"),
+                state=temp_personal.get("state"),
+                city=temp_personal.get("city"),
+                pincode=temp_personal.get("pincode"),
+                spoken_language=temp_personal.get("spoken_language"),
+                profile_photo=temp_personal.get("profile_photo"),
+                profile_photo_mimetype=temp_personal.get("profile_photo_mimetype"),
+            )
+
+            for cert in temp_certs:
+                TrainerCertification.objects.create(
+                    trainer=trainer,
+                    highest_degree=cert.get("highest_degree"),
+                    specialization=cert.get("specialization"),
+                    year_of_graduation=cert.get("year_of_graduation"),
+                    work_experience=cert.get("work_experience"),
+                    yoga_certified=cert.get("yoga_certified", False),
+                    registration_number=cert.get("registration_number"),
+                    certification_type=cert.get("certification_type"),
+                    issuing_authority=cert.get("issuing_authority"),
+                )
+
+            for doc in temp_docs:
+                TrainerDocument.objects.create(
+                    trainer=trainer,
+                    document_type=doc.get("document_type"),
+                    side=doc.get("side"),
+                    document_file=doc.get("document_file"),
+                    document_mimetype=doc.get("document_mimetype"),
+                )
+
+            data = request.data.copy()
+            data["trainer"] = trainer.contact_number
+
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+        cache.delete(personal_key(contact))
+        cache.delete(cert_key(contact))
+        cache.delete(docs_key(contact))
+
+        return Response({"message": "All steps completed. Trainer fully registered."}, status=201)
+
+    # --------------------------------------------
+    # PROTECTED ENDPOINTS (login_required)
+    # --------------------------------------------
+    @login_required
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @login_required
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @login_required
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @login_required
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @login_required
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+    # --------------------------------------------
+    # PUBLIC: VIEW QR (NO LOGIN REQUIRED)
+    # --------------------------------------------
+    @action(detail=True, methods=['get'], url_path='view-qr')
+    def view_qr(self, request, trainer=None):
+        bank = self.get_object()
+        if not bank.qr_code:
+            raise Http404("QR code not found.")
+        return HttpResponse(bank.qr_code, content_type=bank.qr_code_mimetype)
+
+    # --------------------------------------------
+    # PROTECTED: DOWNLOAD QR (LOGIN REQUIRED)
+    # --------------------------------------------
+    @login_required
+    @action(detail=True, methods=['get'], url_path='download-qr')
+    def download_qr(self, request, trainer=None):
+        bank = self.get_object()
+        if not bank.qr_code:
+            raise Http404("QR code not found.")
+
+        response = HttpResponse(bank.qr_code, content_type="application/octet-stream")
+        response["Content-Disposition"] = f"attachment; filename=\"qr_code_{trainer}.png\""
+        return response

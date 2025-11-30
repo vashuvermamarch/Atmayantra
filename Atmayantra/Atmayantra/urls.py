@@ -32,5 +32,9 @@ urlpatterns = [
         path('doctors/certifications/', include('doctor_certification.urls')),
         path('doctors/documents/', include('doctor_documents.urls')),
         path('doctors/bank-details/', include('doctor_bank_details.urls')),
+        path('trainers/personal-details/', include('trainers_personal_detials.urls')),
+        path('trainers/certifications/', include('trainers_certifications.urls')),
+        path('trainers/documents/', include('trainers_documents.urls')),
+        path('trainers/bank-details/', include('trainers_bank_details.urls')),
     ]))
 ]

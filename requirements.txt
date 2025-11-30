@@ -7,6 +7,7 @@ django-cors-headers==4.3.1
 psycopg2-binary==2.9.10
 PyJWT==2.10.1
 python-dateutil==2.9.0.post0
+python-magic-win64==0.4.13
 python-dotenv==1.1.1
 pytz==2025.2
 six==1.16.0
