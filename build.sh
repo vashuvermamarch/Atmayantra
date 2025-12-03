@@ -4,6 +4,7 @@ set -o errexit
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# RUN FROM ROOT WHERE manage.py EXISTS
-python Atmayantra/manage.py collectstatic --no-input
-python Atmayantra/manage.py migrate
+cd Atmayantra
+
+python manage.py collectstatic --no-input
+python manage.py migrate --noinput
