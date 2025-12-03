@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# exit on error
 set -o errexit
 
 pip install --upgrade pip
-pip install -r requirements.txt 
+pip install -r requirements.txt
 
-# These commands are run from the project root
+# RUN FROM ROOT WHERE manage.py EXISTS
 python Atmayantra/manage.py collectstatic --no-input
 python Atmayantra/manage.py migrate
