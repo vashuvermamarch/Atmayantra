@@ -104,16 +104,28 @@ class TrainerBankDetailsViewSet(viewsets.ModelViewSet):
 
             serializer.save()
 
-        # Clear temp cache after final save
+        # Clear temporary cache
         cache.delete(personal_key(contact))
         cache.delete(cert_key(contact))
         cache.delete(docs_key(contact))
 
-        return api_response(
-            True,
-            "All steps have been successfully submitted. Your account will be activated once an administrator reviews and approves your details. You will be notified by our team when your account is ready. Thank you for completing the registration process.",
-            status_code=200
-        )
+        # ---------------------------------------------------------
+        # ENGLISH + HINDI MESSAGE
+        # ---------------------------------------------------------
+        message = {
+            "en": (
+                "All steps have been successfully submitted. Your account will be activated once an "
+                "administrator reviews and approves your details. You will be notified by our team "
+                "when your account is ready. Thank you for completing the registration process."
+            ),
+            "hi": (
+                "सभी चरण सफलतापूर्वक सबमिट हो गए हैं। आपका खाता तब सक्रिय किया जाएगा जब एक "
+                "प्रशासक आपकी जानकारी की समीक्षा और स्वीकृति करेगा। आपका खाता तैयार होने पर "
+                "हमारी टीम आपको सूचित करेगी। पंजीकरण प्रक्रिया पूरी करने के लिए धन्यवाद।"
+            )
+        }
+
+        return api_response(True, message, status_code=200)
 
     # ---------------------------------------------------------
     # PROTECTED CRUD OPERATIONS
