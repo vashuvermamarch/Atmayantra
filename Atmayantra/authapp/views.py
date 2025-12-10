@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 class AuthViewSet(viewsets.GenericViewSet):
     serializer_class = UserSerializer
 
-    # 1) SIGNUP → send OTP
+    # ------------------------------------------------------------
+    # 1) SIGNUP → SEND OTP
+    # ------------------------------------------------------------
     @action(detail=False, methods=['post'])
     def signup(self, request):
         serializer = UserSerializer(data=request.data)
@@ -34,7 +36,7 @@ class AuthViewSet(viewsets.GenericViewSet):
         username = serializer.validated_data['username']
         email = serializer.validated_data.get('email')
 
-        # Unique validations
+        # Unique checks
         if User.objects.filter(phone_number=phone_number).exists():
             return api_response(False, "Phone number already exists.", status.HTTP_400_BAD_REQUEST)
         if User.objects.filter(username=username).exists():
@@ -50,12 +52,14 @@ class AuthViewSet(viewsets.GenericViewSet):
             timeout=300
         )
 
-        print(f"OTP for signup ({phone_number}): {otp}")
+        return api_response(True, "OTP sent successfully.", {
+            "phone_number": phone_number,
+            "otp": otp
+        }, status.HTTP_200_OK)
 
-        return api_response(True, "OTP sent successfully.",
-                            {"phone_number": phone_number, "otp": otp})
-
-    # 2) VERIFY SIGNUP → create user + tokens
+    # ------------------------------------------------------------
+    # 2) VERIFY SIGNUP → CREATE USER + TOKENS
+    # ------------------------------------------------------------
     @action(detail=False, methods=['post'])
     def verify_signup(self, request):
         phone_number = request.data.get("phone_number")
@@ -68,19 +72,18 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         serializer = UserSerializer(data=stored["data"])
         if not serializer.is_valid():
-            return api_response(False, "Error creating user.",
-                                serializer.errors, status.HTTP_400_BAD_REQUEST)
+            return api_response(False, "Error creating user.", serializer.errors, status.HTTP_400_BAD_REQUEST)
 
         user = serializer.save(is_verified=True)
 
-        # USER types auto-active
+        # Auto deactivate non-general users pending admin approval
         if user.user_type != User.UserType.USER:
-            user.is_active = False  # Needs admin approval
+            user.is_active = False
         user.save()
 
         cache.delete(f'otp_signup_{phone_number}')
 
-        # SIGNUP TOKEN (no expiry)
+        # Generate tokens
         signup_payload = {
             "username": user.username,
             "phone_number": user.phone_number,
@@ -89,7 +92,6 @@ class AuthViewSet(viewsets.GenericViewSet):
         }
         signup_token = jwt.encode(signup_payload, settings.SECRET_KEY, algorithm="HS256")
 
-        # SIGNUP REFRESH TOKEN
         signup_refresh_payload = {
             "username": user.username,
             "phone_number": user.phone_number,
@@ -115,10 +117,12 @@ class AuthViewSet(viewsets.GenericViewSet):
                 "signup_token": signup_token,
                 "signup_refresh_token": signup_refresh_token
             },
-            status.HTTP_201_CREATED
+            status.HTTP_200_OK                       # << FIXED (was 201)
         )
 
-    # 3) REFRESH SIGNUP TOKEN → using signup_refresh_token
+    # ------------------------------------------------------------
+    # 3) REFRESH SIGNUP TOKEN
+    # ------------------------------------------------------------
     @action(detail=False, methods=['post'])
     def refresh_signup_token(self, request):
         signup_refresh_token = request.data.get("signup_refresh_token")
@@ -130,24 +134,26 @@ class AuthViewSet(viewsets.GenericViewSet):
         try:
             saved = SignupRefreshToken.objects.get(token=signup_refresh_token)
         except SignupRefreshToken.DoesNotExist:
-            return api_response(False, "Invalid signup_refresh_token.",
-                                status.HTTP_400_BAD_REQUEST)
+            return api_response(False, "Invalid signup_refresh_token.", status.HTTP_400_BAD_REQUEST)
 
         user = saved.user
 
-        new_signup_payload = {
+        new_token_payload = {
             "username": user.username,
             "phone_number": user.phone_number,
             "user_type": user.user_type,
             "iat": datetime.utcnow()
         }
 
-        new_signup_token = jwt.encode(new_signup_payload, settings.SECRET_KEY, algorithm="HS256")
+        new_signup_token = jwt.encode(new_token_payload, settings.SECRET_KEY, algorithm="HS256")
 
-        return api_response(True, "New signup token generated.",
-                            {"signup_token": new_signup_token})
+        return api_response(True, "New signup token generated.", {
+            "signup_token": new_signup_token
+        }, status.HTTP_200_OK)
 
-    # 4) LOGIN → username + password + signup_token
+    # ------------------------------------------------------------
+    # 4) LOGIN
+    # ------------------------------------------------------------
     @action(detail=False, methods=['post'])
     def login(self, request):
         username = request.data.get("username")
@@ -170,6 +176,7 @@ class AuthViewSet(viewsets.GenericViewSet):
         except:
             return api_response(False, "Invalid signup token.", status.HTTP_400_BAD_REQUEST)
 
+        # Validate token matches user
         if decoded["username"] != user.username or decoded["phone_number"] != user.phone_number:
             return api_response(False, "Signup token mismatch.", status.HTTP_400_BAD_REQUEST)
 
@@ -180,26 +187,30 @@ class AuthViewSet(viewsets.GenericViewSet):
             return api_response(False, "User not active (admin approval pending).",
                                 status.HTTP_403_FORBIDDEN)
 
-        # GENERATE LOGIN TOKENS
         refresh = RefreshToken.for_user(user)
         UserRefreshToken.objects.create(user=user, refresh_token=str(refresh))
 
-        return api_response(True, "Login successful.",
-                            {"refresh": str(refresh), "access": str(refresh.access_token)})
+        return api_response(True, "Login successful.", {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token)
+        }, status.HTTP_200_OK)
 
-    # 5) LOGOUT → delete refresh token
+    # ------------------------------------------------------------
+    # 5) LOGOUT
+    # ------------------------------------------------------------
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def logout(self, request):
         refresh_token = request.data.get("refresh")
 
         try:
-            UserRefreshToken.objects.get(user=request.user,
-                                         refresh_token=refresh_token).delete()
-            return api_response(True, "Logged out successfully.")
+            UserRefreshToken.objects.get(user=request.user, refresh_token=refresh_token).delete()
+            return api_response(True, "Logged out successfully.", status_code=status.HTTP_200_OK)
         except UserRefreshToken.DoesNotExist:
             return api_response(False, "Invalid refresh token.", status.HTTP_400_BAD_REQUEST)
 
-    # 6) Protected View → FULL USER DETAILS
+    # ------------------------------------------------------------
+    # 6) AUTH PROTECTED VIEW
+    # ------------------------------------------------------------
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def protected_view(self, request):
         user = request.user
@@ -212,9 +223,11 @@ class AuthViewSet(viewsets.GenericViewSet):
             "is_verified": user.is_verified
         }
 
-        return api_response(True, "Authenticated user details.", data)
+        return api_response(True, "Authenticated user details.", data, status.HTTP_200_OK)
 
-    # 7) Public lookup based on phone number
+    # ------------------------------------------------------------
+    # 7) PUBLIC LOOKUP
+    # ------------------------------------------------------------
     @action(detail=False, methods=['get'], url_path=r'user-data/(?P<phone_number>[^/.]+)')
     def user_data(self, request, phone_number=None):
         try:
@@ -228,7 +241,7 @@ class AuthViewSet(viewsets.GenericViewSet):
                 "is_verified": user.is_verified
             }
 
-            return api_response(True, "User found", data)
+            return api_response(True, "User found", data, status.HTTP_200_OK)
 
         except User.DoesNotExist:
             return api_response(False, "User not found", status.HTTP_404_NOT_FOUND)
