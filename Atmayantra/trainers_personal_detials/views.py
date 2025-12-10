@@ -1,5 +1,5 @@
+import base64
 from django.core.cache import cache
-from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,12 +9,11 @@ from datetime import datetime
 from .models import TrainerPersonalDetails
 from .serializers import TrainerPersonalDetailSerializer
 
-# Authentication imports
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from authapp.decorators import login_required
-from common.permissions import IsAuthenticatedOrPostOnly
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
+from Atmayantra.utils import api_response   # ADDED
 
 CACHE_TTL = 60 * 60 * 24  # 24 hours
 
@@ -47,31 +46,25 @@ class TrainerPersonalDetailViewSet(viewsets.ModelViewSet):
 
     authentication_classes = [JWTAuthentication]
 
-    # CUSTOM PERMISSION LOGIC
     def get_permissions(self):
-        """
-        POST and view/profile-photo → No Auth
-        All other endpoints → Require login
-        """
         if self.action in ["create", "view_profile_photo"]:
             return [AllowAny()]
         return [IsAuthenticated()]
 
     # ----------------------------------------------------------
-    # STEP 1: TEMPORARY PERSONAL DETAILS (NO AUTH)
+    # STEP 1: TEMPORARY PERSONAL DETAILS
     # ----------------------------------------------------------
     def create(self, request, *args, **kwargs):
         contact = request.data.get("contact_number")
         if not contact:
-            return Response({"error": "contact_number is required"}, status=400)
+            return api_response(False, "contact_number is required", status_code=400)
 
         if not TrainerPersonalDetails.objects.filter(contact_number=contact).exists():
 
-            # Fix the date
             try:
                 dob = normalize_date(request.data.get("date_of_birth"))
             except ValueError as e:
-                return Response({"error": str(e)}, status=400)
+                return api_response(False, str(e), status_code=400)
 
             temp = {
                 "contact_number": contact,
@@ -85,29 +78,25 @@ class TrainerPersonalDetailViewSet(viewsets.ModelViewSet):
                 "spoken_language": request.data.get("spoken_language"),
             }
 
-            # Photo store
+            # File to base64
             file = request.FILES.get("profile_photo")
             if file:
-                temp["profile_photo"] = file.read()
+                temp["profile_photo"] = base64.b64encode(file.read()).decode()
                 temp["profile_photo_mimetype"] = file.content_type
 
             cache.set(personal_key(contact), temp, CACHE_TTL)
 
-            temp_display = temp.copy()
-            if "profile_photo" in temp_display:
-                temp_display["profile_photo"] = True
-
-            return Response(
-                {
-                    "message": "Step 1 of 4: Personal details saved temporarily.",
-                    "temporary_data": temp_display
-                }, status=200
+            return api_response(
+                True,
+                "Step 1 of 4: Personal details saved temporarily.",
+                {"temporary_data": temp},
+                status_code=200
             )
 
         return super().create(request, *args, **kwargs)
 
     # ----------------------------------------------------------
-    # RETRIEVE — (AUTH REQUIRED)
+    # RETRIEVE
     # ----------------------------------------------------------
     @login_required
     def retrieve(self, request, contact_number=None):
@@ -115,25 +104,19 @@ class TrainerPersonalDetailViewSet(viewsets.ModelViewSet):
         try:
             trainer = self.get_object()
             serializer = self.get_serializer(trainer)
-            return Response(serializer.data)
+            return api_response(True, "Permanent trainer data", serializer.data)
         except:
             pass
 
         # Temporary fallback
         temp = cache.get(personal_key(contact_number))
         if temp:
-            display_temp = temp.copy()
-            if temp.get("profile_photo"):
-                display_temp["profile_photo"] = True
-                display_temp["profile_photo_url"] = request.build_absolute_uri(
-                    f"/api/trainers/personal/{contact_number}/view/profile-photo/"
-                )
-            return Response({"temporary": display_temp})
+            return api_response(True, "Temporary trainer data", temp)
 
-        return Response({"detail": "Trainer not found."}, status=404)
+        return api_response(False, "Trainer not found.", status_code=404)
 
     # ----------------------------------------------------------
-    # VIEW PHOTO → NO LOGIN REQUIRED
+    # VIEW PHOTO → RETURN BASE64 JSON
     # ----------------------------------------------------------
     @action(detail=True, methods=['get'], url_path='view/profile-photo')
     def view_profile_photo(self, request, contact_number=None):
@@ -141,24 +124,33 @@ class TrainerPersonalDetailViewSet(viewsets.ModelViewSet):
         try:
             trainer = self.get_object()
             if trainer.profile_photo:
-                return HttpResponse(
-                    trainer.profile_photo,
-                    content_type=trainer.profile_photo_mimetype or "image/jpeg"
+                photo_b64 = base64.b64encode(trainer.profile_photo).decode()
+                return api_response(
+                    True,
+                    "Profile photo retrieved.",
+                    {
+                        "photo": photo_b64,
+                        "mimetype": trainer.profile_photo_mimetype or "image/jpeg"
+                    }
                 )
         except:
             pass
 
         temp = cache.get(personal_key(contact_number))
         if temp and temp.get("profile_photo"):
-            return HttpResponse(
-                temp["profile_photo"],
-                content_type=temp.get("profile_photo_mimetype") or "image/jpeg"
+            return api_response(
+                True,
+                "Temporary profile photo retrieved.",
+                {
+                    "photo": temp["profile_photo"],
+                    "mimetype": temp.get("profile_photo_mimetype") or "image/jpeg"
+                }
             )
 
-        return Response({"detail": "Profile photo not found."}, status=404)
+        return api_response(False, "Profile photo not found.", status_code=404)
 
     # ----------------------------------------------------------
-    # DOWNLOAD PHOTO — AUTH REQUIRED
+    # DOWNLOAD PHOTO → RETURN BASE64 JSON
     # ----------------------------------------------------------
     @login_required
     @action(detail=True, methods=['get'], url_path='download/profile-photo')
@@ -166,14 +158,25 @@ class TrainerPersonalDetailViewSet(viewsets.ModelViewSet):
 
         trainer = self.get_object()
         if trainer.profile_photo:
-            resp = HttpResponse(trainer.profile_photo, content_type="application/octet-stream")
-            resp["Content-Disposition"] = 'attachment; filename="profile_photo.jpg"'
-            return resp
+            photo_b64 = base64.b64encode(trainer.profile_photo).decode()
+            return api_response(
+                True,
+                "Profile photo download ready.",
+                {
+                    "filename": "profile_photo.jpg",
+                    "file": photo_b64
+                }
+            )
 
         temp = cache.get(personal_key(contact_number))
         if temp and temp.get("profile_photo"):
-            resp = HttpResponse(temp["profile_photo"], content_type="application/octet-stream")
-            resp["Content-Disposition"] = 'attachment; filename="profile_photo_temp.jpg"'
-            return resp
+            return api_response(
+                True,
+                "Temporary profile photo download ready.",
+                {
+                    "filename": "profile_photo_temp.jpg",
+                    "file": temp["profile_photo"]
+                }
+            )
 
-        return Response({"detail": "Profile photo not found."}, status=404)
+        return api_response(False, "Profile photo not found.", status_code=404)
