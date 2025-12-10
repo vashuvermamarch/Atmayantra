@@ -1,7 +1,6 @@
-import base64
 from django.core.cache import cache
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 
@@ -29,9 +28,9 @@ class TrainerBankDetailsViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.AllowAny]
     lookup_field = "trainer"
 
-    # ---------------------------------------------------------
-    # FINAL SUBMIT (STEP 4)
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------
+    # POST → FINAL SUBMISSION (DO NOT CHANGE RESPONSE)
+    # -------------------------------------------------------------------
     def create(self, request, *args, **kwargs):
         contact = request.data.get("trainer")
 
@@ -47,7 +46,7 @@ class TrainerBankDetailsViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
 
-            # ---------------- PERSONAL ----------------
+            # ----- PERSONAL -----
             trainer = TrainerPersonalDetails.objects.create(
                 contact_number=temp_personal["contact_number"],
                 full_name=temp_personal["full_name"],
@@ -62,7 +61,7 @@ class TrainerBankDetailsViewSet(viewsets.ModelViewSet):
                 profile_photo_mimetype=temp_personal.get("profile_photo_mimetype"),
             )
 
-            # ---------------- CERTIFICATIONS ----------------
+            # ----- CERTIFICATIONS -----
             for cert in temp_certs:
                 TrainerCertification.objects.create(
                     trainer=trainer,
@@ -76,42 +75,50 @@ class TrainerBankDetailsViewSet(viewsets.ModelViewSet):
                     issuing_authority=cert.get("issuing_authority"),
                 )
 
-            # ---------------- DOCUMENTS (BINARY) ----------------
+            # ----- DOCUMENTS (BINARY) -----
             for doc in temp_docs:
                 TrainerDocument.objects.create(
                     trainer=trainer,
                     document_type=doc.get("document_type"),
                     side=doc.get("side"),
-                    document_file=doc.get("document_file"),        # BYTES
+                    document_file=doc.get("document_file"),    # bytes
                     document_mimetype=doc.get("document_mimetype"),
                 )
 
-            # ---------------- BANK DETAILS ----------------
+            # ----- BANK DETAILS -----
             data = request.data.copy()
             data["trainer"] = trainer.contact_number
 
             serializer = self.get_serializer(data=data)
-            serializer.is_valid(raise_exception=True)
+            if not serializer.is_valid():
+                return api_response(False, "Invalid bank details", serializer.errors, status_code=400)
+
             serializer.save()
 
-        # Cleanup
+        # Clear caches
         cache.delete(personal_key(contact))
         cache.delete(cert_key(contact))
         cache.delete(docs_key(contact))
 
-        # Final Message
-        return api_response(
-            True,
-            {
-                "en": "All steps submitted successfully. You will be notified once your registration is approved.",
-                "hi": "सभी चरण सफलतापूर्वक सबमिट हो गए हैं। स्वीकृति के बाद आपको सूचित किया जाएगा।"
-            },
-            status_code=200
-        )
+        # ★★★★★ DO NOT CHANGE THIS MESSAGE ★★★★★
+        message = {
+            "en": (
+                "All steps have been successfully submitted. Your account will be activated once an "
+                "administrator reviews and approves your details. You will be notified by our team "
+                "when your account is ready. Thank you for completing the registration process."
+            ),
+            "hi": (
+                "सभी चरण सफलतापूर्वक सबमिट हो गए हैं। आपका खाता तब सक्रिय किया जाएगा जब एक "
+                "प्रशासक आपकी जानकारी की समीक्षा और स्वीकृति करेगा। आपका खाता तैयार होने पर "
+                "हमारी टीम आपको सूचित करेगी। पंजीकरण प्रक्रिया पूरी करने के लिए धन्यवाद।"
+            )
+        }
 
-    # ---------------------------------------------------------
-    # CRUD (Protected)
-    # ---------------------------------------------------------
+        return api_response(True, message, status_code=200)
+
+    # -------------------------------------------------------------------
+    # PROTECTED CRUD (no changes)
+    # -------------------------------------------------------------------
     @login_required
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
@@ -121,13 +128,16 @@ class TrainerBankDetailsViewSet(viewsets.ModelViewSet):
     @login_required
     def retrieve(self, request, *args, **kwargs):
         bank = self.get_object()
-        return api_response(True, "Bank details retrieved.", self.get_serializer(bank).data)
+        serializer = self.get_serializer(bank)
+        return api_response(True, "Bank details retrieved.", serializer.data)
 
     @login_required
     def update(self, request, *args, **kwargs):
         bank = self.get_object()
         serializer = self.get_serializer(bank, data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return api_response(False, "Invalid data", serializer.errors, status_code=400)
+
         serializer.save()
         return api_response(True, "Bank details updated.", serializer.data)
 
@@ -135,46 +145,43 @@ class TrainerBankDetailsViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         bank = self.get_object()
         serializer = self.get_serializer(bank, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return api_response(False, "Invalid data", serializer.errors, status_code=400)
+
         serializer.save()
         return api_response(True, "Bank details partially updated.", serializer.data)
 
     @login_required
     def destroy(self, request, *args, **kwargs):
-        self.get_object().delete()
+        bank = self.get_object()
+        bank.delete()
         return api_response(True, "Bank details deleted successfully.", status_code=200)
 
-    # ---------------------------------------------------------
-    # VIEW QR → Base64 JSON
-    # ---------------------------------------------------------
-    @action(detail=True, methods=["get"], url_path="view-qr")
+    # -------------------------------------------------------------------
+    # QR VIEW → RETURN RAW BYTES (NO BASE64)
+    # -------------------------------------------------------------------
+    @action(detail=True, methods=['get'], url_path='view-qr')
     def view_qr(self, request, trainer=None):
         bank = self.get_object()
 
         if not bank.qr_code:
             raise Http404("QR code not found.")
 
-        qr_base64 = base64.b64encode(bank.qr_code).decode()
+        # Return actual PNG bytes
+        return HttpResponse(bank.qr_code, content_type=bank.qr_code_mimetype)
 
-        return api_response(True, "QR code retrieved.", {
-            "file": qr_base64,
-            "mimetype": bank.qr_code_mimetype or "image/png"
-        })
-
-    # ---------------------------------------------------------
-    # DOWNLOAD → Base64 JSON
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------
+    # QR DOWNLOAD → RETURN FILE (NO BASE64)
+    # -------------------------------------------------------------------
     @login_required
-    @action(detail=True, methods=["get"], url_path="download-qr")
+    @action(detail=True, methods=['get'], url_path='download-qr')
     def download_qr(self, request, trainer=None):
         bank = self.get_object()
 
         if not bank.qr_code:
             raise Http404("QR code not found.")
 
-        qr_base64 = base64.b64encode(bank.qr_code).decode()
+        response = HttpResponse(bank.qr_code, content_type="application/octet-stream")
+        response["Content-Disposition"] = f'attachment; filename="qr_code_{trainer}.png"'
 
-        return api_response(True, "QR code ready for download.", {
-            "filename": f"qr_code_{trainer}.png",
-            "file": qr_base64
-        })
+        return response
