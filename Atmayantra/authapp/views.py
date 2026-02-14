@@ -8,12 +8,14 @@ from .serializers import UserSerializer
 from .models import User, UserRefreshToken, SignupRefreshToken
 
 from random import randint
-from rest_framework_simplejwt.tokens import RefreshToken
 from Atmayantra.utils import api_response
 
 import logging
 import jwt
 from datetime import datetime
+
+# ✅ USE CUSTOM TOKEN
+from .custom_tokens import CustomRefreshToken
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ class AuthViewSet(viewsets.GenericViewSet):
     serializer_class = UserSerializer
 
     # ------------------------------------------------------------
-    # 1) SIGNUP → SEND OTP
+    # 1️⃣ SIGNUP → SEND OTP
     # ------------------------------------------------------------
     @action(detail=False, methods=['post'])
     def signup(self, request):
@@ -36,11 +38,12 @@ class AuthViewSet(viewsets.GenericViewSet):
         username = serializer.validated_data['username']
         email = serializer.validated_data.get('email')
 
-        # Unique checks
         if User.objects.filter(phone_number=phone_number).exists():
             return api_response(False, "Phone number already exists.", status.HTTP_400_BAD_REQUEST)
+
         if User.objects.filter(username=username).exists():
             return api_response(False, "Username already exists.", status.HTTP_400_BAD_REQUEST)
+
         if email and User.objects.filter(email=email).exists():
             return api_response(False, "Email already exists.", status.HTTP_400_BAD_REQUEST)
 
@@ -58,7 +61,7 @@ class AuthViewSet(viewsets.GenericViewSet):
         }, status.HTTP_200_OK)
 
     # ------------------------------------------------------------
-    # 2) VERIFY SIGNUP → CREATE USER + TOKENS
+    # 2️⃣ VERIFY SIGNUP → CREATE USER
     # ------------------------------------------------------------
     @action(detail=False, methods=['post'])
     def verify_signup(self, request):
@@ -76,20 +79,20 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         user = serializer.save(is_verified=True)
 
-        # Auto deactivate non-general users pending admin approval
         if user.user_type != User.UserType.USER:
             user.is_active = False
         user.save()
 
         cache.delete(f'otp_signup_{phone_number}')
 
-        # Generate tokens
+        # Signup Tokens
         signup_payload = {
             "username": user.username,
             "phone_number": user.phone_number,
             "user_type": user.user_type,
             "iat": datetime.utcnow()
         }
+
         signup_token = jwt.encode(signup_payload, settings.SECRET_KEY, algorithm="HS256")
 
         signup_refresh_payload = {
@@ -99,69 +102,35 @@ class AuthViewSet(viewsets.GenericViewSet):
             "type": "signup_refresh",
             "iat": datetime.utcnow()
         }
+
         signup_refresh_token = jwt.encode(signup_refresh_payload, settings.SECRET_KEY, algorithm="HS256")
 
         SignupRefreshToken.objects.create(user=user, token=signup_refresh_token)
 
-        return api_response(
-            True,
-            "Signup verified successfully.",
-            {
-                "user": {
-                    "username": user.username,
-                    "phone_number": user.phone_number,
-                    "user_type": user.user_type,
-                    "is_active": user.is_active,
-                    "is_verified": user.is_verified
-                },
-                "signup_token": signup_token,
-                "signup_refresh_token": signup_refresh_token
+        return api_response(True, "Signup verified successfully.", {
+            "user": {
+                "username": user.username,
+                "phone_number": user.phone_number,
+                "user_type": user.user_type,
+                "is_active": user.is_active,
+                "is_verified": user.is_verified
             },
-            status.HTTP_200_OK                       # << FIXED (was 201)
-        )
-
-    # ------------------------------------------------------------
-    # 3) REFRESH SIGNUP TOKEN
-    # ------------------------------------------------------------
-    @action(detail=False, methods=['post'])
-    def refresh_signup_token(self, request):
-        signup_refresh_token = request.data.get("signup_refresh_token")
-
-        if not signup_refresh_token:
-            return api_response(False, "signup_refresh_token required.",
-                                status.HTTP_400_BAD_REQUEST)
-
-        try:
-            saved = SignupRefreshToken.objects.get(token=signup_refresh_token)
-        except SignupRefreshToken.DoesNotExist:
-            return api_response(False, "Invalid signup_refresh_token.", status.HTTP_400_BAD_REQUEST)
-
-        user = saved.user
-
-        new_token_payload = {
-            "username": user.username,
-            "phone_number": user.phone_number,
-            "user_type": user.user_type,
-            "iat": datetime.utcnow()
-        }
-
-        new_signup_token = jwt.encode(new_token_payload, settings.SECRET_KEY, algorithm="HS256")
-
-        return api_response(True, "New signup token generated.", {
-            "signup_token": new_signup_token
+            "signup_token": signup_token,
+            "signup_refresh_token": signup_refresh_token
         }, status.HTTP_200_OK)
 
     # ------------------------------------------------------------
-    # 4) LOGIN
+    # 3️⃣ LOGIN
     # ------------------------------------------------------------
     @action(detail=False, methods=['post'])
     def login(self, request):
+
         username = request.data.get("username")
         password = request.data.get("password")
         signup_token = request.data.get("signup_token")
 
-        if not username or not password or not signup_token:
-            return api_response(False, "All fields required.", status.HTTP_400_BAD_REQUEST)
+        if not username or not password:
+            return api_response(False, "Username and password required.", status.HTTP_400_BAD_REQUEST)
 
         try:
             user = User.objects.get(username=username)
@@ -171,24 +140,51 @@ class AuthViewSet(viewsets.GenericViewSet):
         if not user.check_password(password):
             return api_response(False, "Invalid password.", status.HTTP_400_BAD_REQUEST)
 
+        # ✅ MANAGER LOGIN
+        if user.user_type == User.UserType.MANAGER:
+
+            if not user.is_verified:
+                return api_response(False, "Manager not verified.", status.HTTP_403_FORBIDDEN)
+
+            if not user.is_active:
+                return api_response(False, "Manager not active.", status.HTTP_403_FORBIDDEN)
+
+            refresh = CustomRefreshToken.for_user(user)
+
+            UserRefreshToken.objects.create(
+                user=user,
+                refresh_token=str(refresh)
+            )
+
+            return api_response(True, "Manager login successful.", {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token)
+            }, status.HTTP_200_OK)
+
+        # ✅ NORMAL USER LOGIN
+        if not signup_token:
+            return api_response(False, "signup_token required.", status.HTTP_400_BAD_REQUEST)
+
         try:
             decoded = jwt.decode(signup_token, settings.SECRET_KEY, algorithms=["HS256"])
         except:
             return api_response(False, "Invalid signup token.", status.HTTP_400_BAD_REQUEST)
 
-        # Validate token matches user
-        if decoded["username"] != user.username or decoded["phone_number"] != user.phone_number:
+        if decoded["username"] != user.username:
             return api_response(False, "Signup token mismatch.", status.HTTP_400_BAD_REQUEST)
 
         if not user.is_verified:
             return api_response(False, "User not verified.", status.HTTP_403_FORBIDDEN)
 
         if not user.is_active:
-            return api_response(False, "User not active (admin approval pending).",
-                                status.HTTP_403_FORBIDDEN)
+            return api_response(False, "User not active.", status.HTTP_403_FORBIDDEN)
 
-        refresh = RefreshToken.for_user(user)
-        UserRefreshToken.objects.create(user=user, refresh_token=str(refresh))
+        refresh = CustomRefreshToken.for_user(user)
+
+        UserRefreshToken.objects.create(
+            user=user,
+            refresh_token=str(refresh)
+        )
 
         return api_response(True, "Login successful.", {
             "refresh": str(refresh),
@@ -196,52 +192,56 @@ class AuthViewSet(viewsets.GenericViewSet):
         }, status.HTTP_200_OK)
 
     # ------------------------------------------------------------
-    # 5) LOGOUT
+    # 4️⃣ LOGOUT
     # ------------------------------------------------------------
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def logout(self, request):
+
         refresh_token = request.data.get("refresh")
 
         try:
-            UserRefreshToken.objects.get(user=request.user, refresh_token=refresh_token).delete()
+            UserRefreshToken.objects.get(
+                user=request.user,
+                refresh_token=refresh_token
+            ).delete()
+
             return api_response(True, "Logged out successfully.", status_code=status.HTTP_200_OK)
+
         except UserRefreshToken.DoesNotExist:
             return api_response(False, "Invalid refresh token.", status.HTTP_400_BAD_REQUEST)
 
     # ------------------------------------------------------------
-    # 6) AUTH PROTECTED VIEW
+    # 5️⃣ PROTECTED VIEW
     # ------------------------------------------------------------
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def protected_view(self, request):
+
         user = request.user
 
-        data = {
+        return api_response(True, "Authenticated user.", {
             "username": user.username,
             "phone_number": user.phone_number,
             "user_type": user.user_type,
             "is_active": user.is_active,
             "is_verified": user.is_verified
-        }
-
-        return api_response(True, "Authenticated user details.", data, status.HTTP_200_OK)
+        }, status.HTTP_200_OK)
 
     # ------------------------------------------------------------
-    # 7) PUBLIC LOOKUP
+    # 6️⃣ PUBLIC USER LOOKUP
     # ------------------------------------------------------------
     @action(detail=False, methods=['get'], url_path=r'user-data/(?P<phone_number>[^/.]+)')
     def user_data(self, request, phone_number=None):
+
         try:
             user = User.objects.get(phone_number=phone_number)
 
-            data = {
+            return api_response(True, "User found", {
                 "username": user.username,
                 "phone_number": user.phone_number,
                 "user_type": user.user_type,
                 "is_active": user.is_active,
                 "is_verified": user.is_verified
-            }
-
-            return api_response(True, "User found", data, status.HTTP_200_OK)
+            }, status.HTTP_200_OK)
 
         except User.DoesNotExist:
             return api_response(False, "User not found", status.HTTP_404_NOT_FOUND)

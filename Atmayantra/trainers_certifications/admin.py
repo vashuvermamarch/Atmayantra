@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import TrainerCertification
+from django.apps import apps
 
-# Register your models here.
-admin.site.register(TrainerCertification)
+for model in apps.get_app_config("trainers_certifications").get_models():
+    admin.site.register(model)

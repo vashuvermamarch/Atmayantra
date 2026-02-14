@@ -28,6 +28,7 @@ urlpatterns = [
         path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
         path('', include('authapp.urls')),
         path('contact-us/', include('contactapp.urls')),
+        path('admin-auth/',include('admin_auth.urls')),
         path('doctors/personal-details/', include('doctor_personal_details.urls')),
         path('doctors/certifications/', include('doctor_certification.urls')),
         path('doctors/documents/', include('doctor_documents.urls')),
@@ -36,5 +37,8 @@ urlpatterns = [
         path('trainers/certifications/', include('trainers_certifications.urls')),
         path('trainers/documents/', include('trainers_documents.urls')),
         path('trainers/bank-details/', include('trainers_bank_details.urls')),
+        path('managers/personal-details/', include('manager_personal_details.urls')),
+        path('managers/documents/', include('manager_documents.urls')),
+        path('managers/bank-details/', include('manager_bank_details.urls')),
     ]))
 ]

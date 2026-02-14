@@ -55,6 +55,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         YOGA_INSTRUCTOR = 'Yoga Trainer', 'Yoga Trainer'
         YOGA_DOCTOR = 'Yoga Doctor', 'Yoga Doctor'
         PHYSIOTHERAPIST = 'Physiotherapist', 'Physiotherapist'
+        MANAGER = 'Manager', 'Manager'
+
 
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(blank=True, null=True)   # No unique=True
