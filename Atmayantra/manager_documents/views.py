@@ -130,24 +130,36 @@ class ManagerDocControlView(APIView):
     @login_required
     def delete(self, request, contact_number, doc_id):
 
-        personal = ManagerPersonalDetails.objects.filter(
-            contact_number=contact_number
-        ).first()
+        try:
+            personal = ManagerPersonalDetails.objects.filter(
+                contact_number=contact_number
+            ).first()
 
-        if not personal:
-            return Response({"error": "Manager not found"}, status=404)
+            if not personal:
+                return Response({
+                    "error": "Manager not found"
+                }, status=404)
 
-        doc = ManagerDocument.objects.filter(
-            manager=personal,
-            manager_doc_id=doc_id
-        ).first()
+            doc = ManagerDocument.objects.filter(
+                manager=personal,
+                manager_doc_id=doc_id
+            ).first()
 
-        if not doc:
-            return Response({"error": "Document not found"}, status=404)
+            if not doc:
+                return Response({
+                    "error": "Document not found"
+                }, status=404)
 
-        doc.delete()
+            doc.delete()
 
-        return Response({"message": "Deleted"})
+            return Response({
+                "message": "Document deleted successfully"
+            })
+
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=500)
 
 
     @login_required

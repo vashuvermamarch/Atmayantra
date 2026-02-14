@@ -112,12 +112,26 @@ class ManagerUpdateDeleteView(APIView):
     def delete(self, request, contact_number):
 
         try:
-            obj = ManagerPersonalDetails.objects.get(contact_number=contact_number)
-            obj.delete()
-            return Response({"message": "Deleted"})
+            obj = ManagerPersonalDetails.objects.filter(
+                contact_number=contact_number
+            ).first()
 
-        except ManagerPersonalDetails.DoesNotExist:
-            return Response({"error": "Not Found"}, status=404)
+            if not obj:
+                return Response({
+                    "error": "Manager not found"
+                }, status=404)
+
+            obj.delete()
+
+            return Response({
+                "message": "Manager deleted successfully"
+            })
+
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=500)
+
 
 
     def update_manager(self, request, contact_number):

@@ -41,11 +41,36 @@ class ManagerBankUpdateDeleteView(APIView):
     @login_required
     def delete(self, request, contact_number):
 
-        personal = ManagerPersonalDetails.objects.get(contact_number=contact_number)
-        bank = ManagerBankDetails.objects.get(manager=personal)
+        try:
+            personal = ManagerPersonalDetails.objects.filter(
+                contact_number=contact_number
+            ).first()
 
-        bank.delete()
-        return Response({"message": "Deleted"})
+            if not personal:
+                return Response({
+                    "error": "Manager not found"
+                }, status=404)
+
+            bank = ManagerBankDetails.objects.filter(
+                manager=personal
+            ).first()
+
+            if not bank:
+                return Response({
+                    "error": "Bank details not found"
+                }, status=404)
+
+            bank.delete()
+
+            return Response({
+                "message": "Bank details deleted successfully"
+            })
+
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=500)
+
 
 
     def update_bank(self, request, contact_number):

@@ -535,17 +535,28 @@ def manager_step3_finalize(request, temp_id):
         )
 
     except IntegrityError:
+
         existing_user = User.objects.filter(
             phone_number=temp.contact_number
         ).first()
 
         if existing_user:
+
+            # ⭐ CRITICAL FIX
+            existing_user.set_password(raw_password)
+            existing_user.username = unique_username
+            existing_user.is_active = True
+            existing_user.is_verified = True
+            existing_user.save()
+
             auth_user = existing_user
+
         else:
             return Response({
                 "success": False,
                 "error": "User creation failed"
             }, status=500)
+
 
     # -------------------------------------------------
     # ✅ CREATE MANAGER PERSONAL PROFILE
