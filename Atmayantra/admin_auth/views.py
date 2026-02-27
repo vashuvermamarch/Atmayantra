@@ -10,9 +10,8 @@ from django.contrib.auth.hashers import make_password, check_password
 from .serializers import AdminVerifyOtpSerializer
 import random
 import jwt
-from django.db import IntegrityError
-from rest_framework_simplejwt.tokens import RefreshToken
 import datetime
+from django.db import IntegrityError, transaction
 from authapp.models import User
 from .manager_onboarding_services import (
     generate_manager_password,
@@ -471,6 +470,7 @@ def manager_step1_personal(request):
 
 @api_view(['POST'])
 @admin_login_required
+@parser_classes([MultiPartParser, FormParser])
 def manager_step2_documents(request, temp_id):
 
     temp = TempManagerPersonal.objects.get(id=temp_id)
@@ -495,6 +495,8 @@ def manager_step2_documents(request, temp_id):
 
 @api_view(['POST'])
 @admin_login_required
+@parser_classes([MultiPartParser, FormParser])
+@transaction.atomic
 def manager_step3_finalize(request, temp_id):
 
     try:
@@ -584,11 +586,13 @@ def manager_step3_finalize(request, temp_id):
     temp_docs = TempManagerDocument.objects.filter(manager=temp)
 
     for d in temp_docs:
-        ManagerDocument.objects.create(
+        ManagerDocument.objects.update_or_create(
             manager=personal,
             doc_type=d.doc_type,
             file=d.file,
-            file_mimetype=d.file_mimetype
+            defaults={
+                "file_mimetype": d.file_mimetype
+            }
         )
 
     # -------------------------------------------------
@@ -601,15 +605,17 @@ def manager_step3_finalize(request, temp_id):
 # CASE 1 → Temp Bank Exists (Old Flow Works)
 # ---------------------------------------------
     if temp_bank:
-        ManagerBankDetails.objects.create(
+        ManagerBankDetails.objects.update_or_create(
             manager=personal,
-            account_holder_name=temp_bank.account_holder_name,
-            bank_name=temp_bank.bank_name,
-            branch_name=temp_bank.branch_name,
-            account_number=temp_bank.account_number,
-            account_type=temp_bank.account_type,
-            upi_id=temp_bank.upi_id,
-            ifsc_code=temp_bank.ifsc_code
+            defaults={
+                "account_holder_name": temp_bank.account_holder_name,
+                "bank_name": temp_bank.bank_name,
+                "branch_name": temp_bank.branch_name,
+                "account_number": temp_bank.account_number,
+                "account_type": temp_bank.account_type,
+                "upi_id": temp_bank.upi_id,
+                "ifsc_code": temp_bank.ifsc_code
+            }
         )
 
     # ---------------------------------------------
@@ -617,16 +623,17 @@ def manager_step3_finalize(request, temp_id):
     # ---------------------------------------------
     else:
         if request.data.get("bank_name"):  # Basic check
-
-            ManagerBankDetails.objects.create(
+            ManagerBankDetails.objects.update_or_create(
                 manager=personal,
-                account_holder_name=request.data.get("account_holder_name"),
-                bank_name=request.data.get("bank_name"),
-                branch_name=request.data.get("branch_name"),
-                account_number=request.data.get("account_number"),
-                account_type=request.data.get("account_type"),
-                upi_id=request.data.get("upi_id"),
-                ifsc_code=request.data.get("ifsc_code")
+                defaults={
+                    "account_holder_name": request.data.get("account_holder_name"),
+                    "bank_name": request.data.get("bank_name"),
+                    "branch_name": request.data.get("branch_name"),
+                    "account_number": request.data.get("account_number"),
+                    "account_type": request.data.get("account_type"),
+                    "upi_id": request.data.get("upi_id"),
+                    "ifsc_code": request.data.get("ifsc_code")
+                }
             )
 
 
