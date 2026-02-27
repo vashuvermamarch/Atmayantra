@@ -473,7 +473,13 @@ def manager_step1_personal(request):
 @parser_classes([MultiPartParser, FormParser])
 def manager_step2_documents(request, temp_id):
 
-    temp = TempManagerPersonal.objects.get(id=temp_id)
+    try:
+        temp = TempManagerPersonal.objects.get(id=temp_id)
+    except TempManagerPersonal.DoesNotExist:
+        return Response({
+            "success": False,
+            "error": "Temp Manager not found"
+        }, status=status.HTTP_404_NOT_FOUND)
 
     files = request.FILES.getlist("files")
     doc_type = request.data.get("doc_type")
@@ -523,9 +529,20 @@ def manager_step3_finalize(request, temp_id):
     raw_password = generate_manager_password()
 
     # -------------------------------------------------
-    # ✅ CREATE AUTH USER
+    # ✅ GET OR CREATE AUTH USER
     # -------------------------------------------------
-    try:
+    auth_user = User.objects.filter(phone_number=temp.contact_number).first()
+
+    if auth_user:
+        # Update existing user
+        auth_user.set_password(raw_password)
+        auth_user.username = unique_username
+        auth_user.user_type = User.UserType.MANAGER
+        auth_user.is_active = True
+        auth_user.is_verified = True
+        auth_user.save()
+    else:
+        # Create new user
         auth_user = User.objects.create_user(
             username=unique_username,
             phone_number=temp.contact_number,
@@ -536,34 +553,11 @@ def manager_step3_finalize(request, temp_id):
             is_active=True
         )
 
-    except IntegrityError:
-
-        existing_user = User.objects.filter(
-            phone_number=temp.contact_number
-        ).first()
-
-        if existing_user:
-
-            # ⭐ CRITICAL FIX
-            existing_user.set_password(raw_password)
-            existing_user.username = unique_username
-            existing_user.is_active = True
-            existing_user.is_verified = True
-            existing_user.save()
-
-            auth_user = existing_user
-
-        else:
-            return Response({
-                "success": False,
-                "error": "User creation failed"
-            }, status=500)
-
 
     # -------------------------------------------------
     # ✅ CREATE MANAGER PERSONAL PROFILE
     # -------------------------------------------------
-    personal, created = ManagerPersonalDetails.objects.get_or_create(
+    personal, created = ManagerPersonalDetails.objects.update_or_create(
         user=auth_user,
         defaults={
             "employee_name": temp.employee_name,
