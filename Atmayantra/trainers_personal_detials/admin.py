@@ -1,5 +1,9 @@
 from django.contrib import admin
-from django.apps import apps
+from .models import TrainerPersonalDetails
 
-for model in apps.get_app_config("trainers_personal_detials").get_models():
-    admin.site.register(model)
+@admin.register(TrainerPersonalDetails)
+class TrainerPersonalDetailsAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'contact_number', 'email', 'gender', 'city', 'state')
+    list_editable = ('city', 'state')
+    search_fields = ('full_name', 'contact_number', 'email')
+    list_filter = ('gender', 'state', 'city')

@@ -1,5 +1,9 @@
 from django.contrib import admin
-from django.apps import apps
+from .models import DoctorCertification
 
-for model in apps.get_app_config("doctor_certification").get_models():
-    admin.site.register(model)
+@admin.register(DoctorCertification)
+class DoctorCertificationAdmin(admin.ModelAdmin):
+    list_display = ('doctor', 'highest_degree', 'year_of_graduation', 'license_registration_number', 'yoga_certified')
+    list_editable = ('yoga_certified',)
+    list_filter = ('yoga_certified', 'highest_degree')
+    search_fields = ('doctor__full_name', 'license_registration_number')

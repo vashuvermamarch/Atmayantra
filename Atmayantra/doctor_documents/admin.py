@@ -1,5 +1,8 @@
 from django.contrib import admin
-from django.apps import apps
+from .models import DoctorDocument
 
-for model in apps.get_app_config("doctor_documents").get_models():
-    admin.site.register(model)
+@admin.register(DoctorDocument)
+class DoctorDocumentAdmin(admin.ModelAdmin):
+    list_display = ('doctor', 'doc_type', 'side', 'filename', 'content_type')
+    list_filter = ('doc_type', 'content_type')
+    search_fields = ('doctor__full_name', 'filename', 'doc_type')

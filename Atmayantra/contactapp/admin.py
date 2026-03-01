@@ -1,9 +1,7 @@
 from django.contrib import admin
-from django.apps import apps
-from django.contrib.admin.sites import AlreadyRegistered
+from .models import Contact
 
-for model in apps.get_app_config("contactapp").get_models():
-    try:
-        admin.site.register(model)
-    except AlreadyRegistered:
-        pass
+@admin.register(Contact)
+class ContactAdmin(admin.ModelAdmin):
+    list_display = ('name', 'email', 'phone_no')
+    search_fields = ('name', 'email', 'phone_no')

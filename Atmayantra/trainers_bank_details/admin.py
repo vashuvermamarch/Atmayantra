@@ -1,5 +1,9 @@
 from django.contrib import admin
-from django.apps import apps
+from .models import TrainerBankDetails
 
-for model in apps.get_app_config("trainers_bank_details").get_models():
-    admin.site.register(model)
+@admin.register(TrainerBankDetails)
+class TrainerBankDetailsAdmin(admin.ModelAdmin):
+    list_display = ('trainer', 'account_holder_name', 'account_number', 'account_type', 'ifsc_code')
+    list_editable = ('account_type',)
+    list_filter = ('account_type',)
+    search_fields = ('trainer__full_name', 'account_holder_name', 'account_number')

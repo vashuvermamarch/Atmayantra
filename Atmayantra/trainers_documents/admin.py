@@ -1,5 +1,8 @@
 from django.contrib import admin
-from django.apps import apps
+from .models import TrainerDocument
 
-for model in apps.get_app_config("trainers_documents").get_models():
-    admin.site.register(model)
+@admin.register(TrainerDocument)
+class TrainerDocumentAdmin(admin.ModelAdmin):
+    list_display = ('trainer', 'document_type', 'side', 'document_mimetype', 'uploaded_at')
+    list_filter = ('document_type', 'side')
+    search_fields = ('trainer__full_name', 'document_type')
