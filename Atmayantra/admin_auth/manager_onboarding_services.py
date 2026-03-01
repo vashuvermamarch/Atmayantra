@@ -13,15 +13,21 @@ def _send_email_async(email, subject, message):
     try:
         from django.core.mail import send_mail
         from django.conf import settings
+        import traceback
+        
+        print(f"DEBUG: Attempting to send background email to {email}")
         send_mail(
             subject=subject,
             message=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],
-            fail_silently=True
+            fail_silently=False # Keep false inside our try-block to catch the error
         )
+        print(f"DEBUG: Background email sent successfully to {email}")
     except BaseException as e:
-        print(f"Background SMTP/Process Error: {e}")
+        import traceback
+        print(f"CRITICAL: Background SMTP/Process Error to {email}: {e}")
+        print(traceback.format_exc())
 
 def send_manager_credentials(email, username, employee_id, contact_number, password):
     subject = "Manager Account Created"

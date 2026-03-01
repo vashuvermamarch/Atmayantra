@@ -446,7 +446,7 @@ def reset_password(request):
 def manager_step1_personal(request):
 
     photo = request.FILES.get("profile_photo")
-
+    print(f"DEBUG: Step 1 - profile_photo received: {photo is not None}")
     temp = TempManagerPersonal.objects.create(
         employee_name=request.data.get("employee_name"),
         salary=request.data.get("salary"),
@@ -484,7 +484,16 @@ def manager_step2_documents(request, temp_id):
     files = request.FILES.getlist("files")
     doc_type = request.data.get("doc_type")
 
+    print(f"DEBUG: Step 2 - temp_id: {temp_id}, doc_type: {doc_type}, files received: {len(files)}")
+
+    if not files:
+        return Response({
+            "success": False,
+            "message": "No files received. Please select documents to upload."
+        }, status=400)
+
     for f in files:
+        print(f"DEBUG: Saving document {f.name} ({f.size} bytes)")
         TempManagerDocument.objects.create(
             manager=temp,
             doc_type=doc_type,
@@ -578,8 +587,10 @@ def manager_step3_finalize(request, temp_id):
     # ✅ COPY DOCUMENTS → AUTO GENERATES manager_doc_id
     # -------------------------------------------------
     temp_docs = TempManagerDocument.objects.filter(manager=temp)
+    print(f"DEBUG: Moving {temp_docs.count()} documents from temp to permanent storage")
 
     for d in temp_docs:
+        print(f"DEBUG: Migrating document of type {d.doc_type}")
         ManagerDocument.objects.update_or_create(
             manager=personal,
             doc_type=d.doc_type,
