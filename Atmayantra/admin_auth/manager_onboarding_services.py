@@ -8,6 +8,7 @@ def generate_manager_password(length=10):
 
 
 import threading
+import traceback
 
 def _send_email_async(email, subject, message):
     try:
@@ -15,18 +16,30 @@ def _send_email_async(email, subject, message):
         from django.conf import settings
         import traceback
         
-        print(f"DEBUG: Attempting to send background email to {email}")
+        # --- DEBUG LOGS FOR RENDER ---
+        print(f"DEBUG: STARTing background email process for {email}")
+        print(f"DEBUG: SMTP Config - Host: {settings.EMAIL_HOST}, Port: {settings.EMAIL_PORT}, TLS: {settings.EMAIL_USE_TLS}")
+        print(f"DEBUG: SMTP User: {settings.EMAIL_HOST_USER}")
+        print(f"DEBUG: From Email: {settings.DEFAULT_FROM_EMAIL}")
+        
+        # Verify password exists (but don't log it!)
+        if not settings.EMAIL_HOST_PASSWORD:
+            print("CRITICAL: EMAIL_HOST_PASSWORD is EMPTY or NONE in environment!")
+        else:
+            print(f"DEBUG: EMAIL_HOST_PASSWORD is present (Length: {len(settings.EMAIL_HOST_PASSWORD)})")
+
         send_mail(
             subject=subject,
             message=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],
-            fail_silently=False # Keep false inside our try-block to catch the error
+            fail_silently=False
         )
         print(f"DEBUG: Background email sent successfully to {email}")
-    except BaseException as e:
+    except Exception as e:
         import traceback
-        print(f"CRITICAL: Background SMTP/Process Error to {email}: {e}")
+        print(f"CRITICAL: SMTP Error to {email}: {str(e)}")
+        print("DEBUG: Full SMTP Traceback:")
         print(traceback.format_exc())
 
 def send_manager_credentials(email, username, employee_id, contact_number, password):
