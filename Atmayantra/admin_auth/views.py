@@ -645,7 +645,7 @@ def manager_step3_finalize(request, temp_id):
     # -------------------------------------------------
     # ✅ SEND EMAIL WITH LOGIN CREDENTIALS
     # -------------------------------------------------
-    send_manager_credentials(
+    email_sent = send_manager_credentials(
         email=temp.email,
         username=auth_user.username,
         employee_id=employee_id,
@@ -668,6 +668,7 @@ def manager_step3_finalize(request, temp_id):
         "response": {
             "message": "Manager Created Successfully",
             "username": auth_user.username,
-            "employee_id": employee_id
+            "employee_id": employee_id,
+            "email_sent": email_sent
         }
     })

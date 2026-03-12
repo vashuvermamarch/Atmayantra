@@ -34,3 +34,5 @@ whitenoise
 django-cors-headers
 
 PyJWT
+
+requests

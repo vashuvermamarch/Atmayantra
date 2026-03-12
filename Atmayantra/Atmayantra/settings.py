@@ -255,6 +255,9 @@ DEFAULT_FROM_EMAIL=os.environ.get("DEFAULT_FROM_EMAIL")
 
 EMAIL_TIMEOUT=int(os.environ.get("EMAIL_TIMEOUT",30))
 
+# Resend API (HTTP-based email for Render where SMTP is blocked)
+RESEND_API_KEY=os.environ.get("RESEND_API_KEY")
+
 
 # ------------------------------------------------------
 # LOGGING
