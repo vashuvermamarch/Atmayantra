@@ -18,7 +18,7 @@ def _send_email_async(email, subject, message):
         
         # --- DEBUG LOGS FOR RENDER ---
         print(f"DEBUG: STARTing background email process for {email}")
-        print(f"DEBUG: SMTP Config - Host: {settings.EMAIL_HOST}, Port: {settings.EMAIL_PORT}, TLS: {settings.EMAIL_USE_TLS}")
+        print(f"DEBUG: SMTP Config - Host: {settings.EMAIL_HOST}, Port: {settings.EMAIL_PORT}, TLS: {settings.EMAIL_USE_TLS}, SSL: {getattr(settings, 'EMAIL_USE_SSL', False)}")
         print(f"DEBUG: SMTP User: {settings.EMAIL_HOST_USER}")
         print(f"DEBUG: From Email: {settings.DEFAULT_FROM_EMAIL}")
         
