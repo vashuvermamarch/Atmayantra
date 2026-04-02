@@ -11,10 +11,10 @@ class DoctorCertificationSerializer(serializers.ModelSerializer):
         fields = (
             'doctor',
             'highest_degree',
-            'specializations',
+            'specialization',
             'year_of_graduation',
-            'license_registration_number',
-            'year_of_experience',
+            'registration_number',
+            'work_experience',
             'yoga_certified',
             'certification_type',
             'issuing_authority',

@@ -34,14 +34,22 @@ class DoctorCertificationView(APIView):
         return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        contact_number = request.data.get('doctor')
+        temp_id = request.data.get('temp_id')
+        if not temp_id:
+            return Response({"success": False, "message": "temp_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve contact_number from session mapping
+        session_key = f"doctor_onboarding_session_{temp_id}"
+        contact_number = cache.get(session_key)
+        if not contact_number:
+            return Response({"success": False, "message": "Invalid temp_id or session expired."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if personal details from step 1 are in the cache
         personal_details_cache_key = f"doctor_personal_details_{contact_number}"
         if not cache.get(personal_details_cache_key):
             return Response({
                 "success": False, 
-                "message": "Personal details not found in cache. Please complete step 1 first."
+                "message": "Personal details not found in cache. Please complete step 1 properly."
             }, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = DoctorCertificationSerializer(data=request.data)

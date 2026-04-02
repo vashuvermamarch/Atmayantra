@@ -20,9 +20,16 @@ class DoctorDocumentView(APIView):
     permission_classes = [IsAuthenticatedOrPostOnly]
 
     def post(self, request, *args, **kwargs):
-        contact_number = request.data.get('doctor')
+        temp_id = request.data.get('temp_id')
+        if not temp_id:
+            return api_response(False, "temp_id is required.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve contact_number from session mapping
+        session_key = f"doctor_onboarding_session_{temp_id}"
+        contact_number = cache.get(session_key)
+
         if not contact_number:
-            return api_response(False, "'doctor' (contact number) is a required field.", status_code=status.HTTP_400_BAD_REQUEST)
+             return api_response(False, "Invalid temp_id or session expired.", status_code=status.HTTP_400_BAD_REQUEST)
 
         serializer = DoctorDocumentSerializer(data=request.data)
         if serializer.is_valid():
@@ -32,7 +39,7 @@ class DoctorDocumentView(APIView):
             # First, check if step 1 was completed
             personal_details_cache_key = f"doctor_personal_details_{contact_number}"
             if not cache.get(personal_details_cache_key):
-                return api_response(False, "Personal details for this doctor do not exist in cache. Please complete step 1 first.", status_code=status.HTTP_400_BAD_REQUEST)
+                return api_response(False, "Personal details for this doctor do not exist in cache. Please complete step 1 properly.", status_code=status.HTTP_400_BAD_REQUEST)
 
             # Prepare document data for caching
             doc_type = data.get('doc_type')

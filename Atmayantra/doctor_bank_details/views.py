@@ -49,9 +49,16 @@ class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
         return obj
 
     def create(self, request, *args, **kwargs):
-        contact_number = request.data.get('doctor')
+        temp_id = request.data.get('temp_id')
+        if not temp_id:
+            return api_response(False, "temp_id is required.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve contact_number from session mapping
+        session_key = f"doctor_onboarding_session_{temp_id}"
+        contact_number = cache.get(session_key)
+
         if not contact_number:
-            return api_response(False, "'doctor' (contact number) is a required field.", status_code=status.HTTP_400_BAD_REQUEST)
+            return api_response(False, "Invalid temp_id or session expired.", status_code=status.HTTP_400_BAD_REQUEST)
 
         # Retrieve data from cache
         personal_details_cache_key = f"doctor_personal_details_{contact_number}"
@@ -74,7 +81,11 @@ class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
         if not documents_data:
             return api_response(False, "Document details (step 3) are missing from cache.", status_code=status.HTTP_400_BAD_REQUEST)
 
-        bank_details_serializer = self.get_serializer(data=request.data)
+        # Prepare data for serializer (Inject doctor resolved from temp_id)
+        serializer_data = request.data.copy()
+        serializer_data['doctor'] = contact_number
+
+        bank_details_serializer = self.get_serializer(data=serializer_data)
         bank_details_serializer.is_valid(raise_exception=True)
         bank_details_data = bank_details_serializer.validated_data
 
@@ -87,7 +98,6 @@ class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
                 DoctorProfilePhoto.objects.create(doctor=doctor, photo_data=profile_photo_data)
 
                 # Save certification details
-                # The 'doctor' field in certification_data is just a contact number string, so we replace it with the actual doctor instance
                 certification_data.pop('doctor', None)
                 DoctorCertification.objects.create(doctor=doctor, **certification_data)
 
@@ -118,11 +128,12 @@ class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
                 bank_details_data['doctor'] = doctor
                 DoctorBankDetails.objects.create(**bank_details_data)
 
-            # Clear cache
+            # Clear all cache including session mapping
             cache.delete(personal_details_cache_key)
             cache.delete(profile_photo_cache_key)
             cache.delete(certification_cache_key)
             cache.delete(documents_cache_key)
+            cache.delete(session_key)
 
             return api_response(True, "Doctor registration complete! All details have been saved.", status_code=status.HTTP_200_OK)
 

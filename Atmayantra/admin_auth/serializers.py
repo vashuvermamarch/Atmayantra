@@ -7,7 +7,7 @@ class AdminSignUpSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AdminUser
-        fields = ['contact_number', 'name', 'email', 'password', 'confirm_password']
+        fields = ['username', 'contact_number', 'name', 'email', 'password', 'confirm_password']
 
     def validate(self, data):
         if data['password'] != data['confirm_password']:
@@ -21,16 +21,16 @@ class AdminSignUpSerializer(serializers.ModelSerializer):
 
 
 class AdminVerifyOtpSerializer(serializers.Serializer):
-    contact_number = serializers.CharField()
+    username = serializers.CharField()
     otp = serializers.CharField(max_length=6)
 
 
 class ForgotPasswordRequestSerializer(serializers.Serializer):
-    contact_number = serializers.CharField()
+    username = serializers.CharField()
     email = serializers.EmailField()
 
 class ResetPasswordSerializer(serializers.Serializer):
-    contact_number = serializers.CharField()
+    username = serializers.CharField()
     otp = serializers.CharField(max_length=6)
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)

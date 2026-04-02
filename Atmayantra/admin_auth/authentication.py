@@ -20,22 +20,44 @@ class AdminJWTAuthentication(BaseAuthentication):
             if prefix != "Bearer":
                 return None
 
-            decoded = jwt.decode(
-                token,
-                settings.JWT_SECRET_KEY,
-                algorithms=[settings.JWT_ALGORITHM]
-            )
+            # 1. Unverified decode check for Admin-specific fields
+            try:
+                unverified = jwt.decode(token, options={"verify_signature": False})
+                is_admin_token = "contact_number" in unverified and ("email" in unverified or unverified.get("type") == "access")
+            except Exception:
+                # If we cannot even decode it, it's not a valid token format for us
+                return None
 
-            if decoded.get("type") != "access":
-                raise AuthenticationFailed("Invalid admin token")
+            if not is_admin_token:
+                # This doesn't look like an Admin token, let other authenticators try
+                return None
 
-            admin = AdminUser.objects.get(
-                contact_number=decoded["contact_number"]
-            )
+            # 2. Verified decode - We are confident this is an Admin token
+            try:
+                decoded = jwt.decode(
+                    token,
+                    settings.JWT_SECRET_KEY,
+                    algorithms=[settings.JWT_ALGORITHM]
+                )
 
-            request.admin_user = admin
+                if decoded.get("type") != "access":
+                     raise AuthenticationFailed("Invalid admin token type")
 
-            return (admin, None)
+                admin = AdminUser.objects.get(
+                    contact_number=decoded["contact_number"]
+                )
 
-        except Exception:
+                request.admin_user = admin
+                return (admin, None)
+
+            except jwt.ExpiredSignatureError:
+                raise AuthenticationFailed("Admin access token has expired")
+            except jwt.InvalidTokenError:
+                raise AuthenticationFailed("Invalid Admin access token signature")
+            except AdminUser.DoesNotExist:
+                raise AuthenticationFailed("Admin user account not found")
+
+        except Exception as e:
+            if isinstance(e, AuthenticationFailed):
+                raise e
             return None

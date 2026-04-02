@@ -134,11 +134,20 @@ if os.environ.get("REDIS_URL"):
             "OPTIONS":{"CLIENT_CLASS":"django_redis.client.DefaultClient"},
         }
     }
-else:
+elif os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
+    # Render fallback: Persistent Database Cache (FileBasedCache is unstable on Render)
     CACHES={
         "default":{
-            "BACKEND":"django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION":"atmayantra-local-cache",
+            "BACKEND":"django.core.cache.backends.db.DatabaseCache",
+            "LOCATION":"atmayantra_cache_table",
+        }
+    }
+else:
+    # Local fallback
+    CACHES={
+        "default":{
+            "BACKEND":"django.core.cache.backends.filebased.FileBasedCache",
+            "LOCATION":os.path.join(BASE_DIR, "django_cache"),
         }
     }
 
@@ -231,6 +240,10 @@ JWT_ACCESS_TOKEN_LIFETIME_MINUTES=int(
 
 JWT_REFRESH_TOKEN_LIFETIME_DAYS=int(
     os.environ.get("JWT_REFRESH_TOKEN_LIFETIME_DAYS",7)
+)
+
+SIGNUP_TOKEN_LIFETIME_MINUTES=int(
+    os.environ.get("SIGNUP_TOKEN_LIFETIME_MINUTES",30)
 )
 
 

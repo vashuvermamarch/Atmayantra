@@ -54,17 +54,21 @@ def generate_employee_id():
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def signup(request):
+    username = request.data.get('username')
     contact_number = request.data.get('contact_number')
     name = request.data.get('name')
     email = request.data.get('email')
     password = request.data.get('password')
     confirm_password = request.data.get('confirm_password')
 
-    if not all([contact_number, name, email, password, confirm_password]):
+    if not all([username, contact_number, name, email, password, confirm_password]):
         return Response({'success': False, 'error': 'All fields are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     if password != confirm_password:
         return Response({'success': False, 'error': 'Passwords do not match.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if AdminUser.objects.filter(username=username).exists():
+        return Response({'success': False, 'error': 'Username already registered.'}, status=status.HTTP_400_BAD_REQUEST)
 
     if AdminUser.objects.filter(contact_number=contact_number).exists():
         return Response({'success': False, 'error': 'Contact number already registered.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -73,7 +77,8 @@ def signup(request):
         return Response({'success': False, 'error': 'Email already registered.'}, status=status.HTTP_400_BAD_REQUEST)
 
     otp = str(random.randint(100000, 999999))
-    cache.set(f"signup_otp_{contact_number}", {'otp': otp, 'data': {
+    cache.set(f"signup_otp_{username}", {'otp': otp, 'data': {
+        'username': username,
         'contact_number': contact_number,
         'name': name,
         'email': email,
@@ -83,6 +88,7 @@ def signup(request):
     return Response({'success': True, 'response':{
         'message': 'OTP generated successfully (valid for 15 minutes)',
         'otp': otp,
+        'username': username,
         'contact_number': contact_number,
         'email': email
     }}, status=status.HTTP_200_OK)
@@ -94,13 +100,13 @@ def signup(request):
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def verify_signup(request):
-    contact_number = request.data.get('contact_number')
+    username = request.data.get('username')
     otp = request.data.get('otp')
 
-    if not contact_number or not otp:
-        return Response({'success': False, 'error': 'Contact number and OTP are required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not username or not otp:
+        return Response({'success': False, 'error': 'Username and OTP are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    cached_data = cache.get(f"signup_otp_{contact_number}")
+    cached_data = cache.get(f"signup_otp_{username}")
     if not cached_data:
         return Response({'success': False, 'error': 'OTP expired or not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -109,12 +115,13 @@ def verify_signup(request):
 
     data = cached_data['data']
     AdminUser.objects.create(
+        username=data['username'],
         contact_number=data['contact_number'],
         name=data['name'],
         email=data['email'],
         password=make_password(data['password'])  # FIX: Hash password on creation
     )
-    cache.delete(f"signup_otp_{contact_number}")
+    cache.delete(f"signup_otp_{username}")
 
     return Response({'success': True, 'response':{'message': 'Signup successful!'}}, status=status.HTTP_200_OK)
 
@@ -125,26 +132,27 @@ def verify_signup(request):
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def login_request(request):
-    contact_number = request.data.get('contact_number')
+    username = request.data.get('username')
     password = request.data.get('password')
 
-    if not contact_number or not password:
-        return Response({'success': False, 'error': 'Contact number and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not username or not password:
+        return Response({'success': False, 'error': 'Username and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        admin_user = AdminUser.objects.get(contact_number=contact_number)
+        admin_user = AdminUser.objects.get(username=username)
     except AdminUser.DoesNotExist:
-        return Response({'success': False, 'error': 'Invalid contact number or password.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'success': False, 'error': 'Invalid username or password.'}, status=status.HTTP_400_BAD_REQUEST)
 
     # FIX: Use check_password to compare plain text against a hash
     if not check_password(password, admin_user.password):
-        return Response({'success': False, 'error': 'Invalid contact number or password.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'success': False, 'error': 'Invalid username or password.'}, status=status.HTTP_400_BAD_REQUEST)
 
     otp = str(random.randint(100000, 999999))
-    cache.set(f"login_otp_{contact_number}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
+    cache.set(f"login_otp_{username}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
 
     return Response({'success': True, 'response':{
         'message': 'Login OTP generated successfully (valid for 15 minutes)',
+        'username': admin_user.username,
         'contact_number': admin_user.contact_number,
         'email': admin_user.email,
         'otp': otp
@@ -157,28 +165,29 @@ def login_request(request):
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def verify_login_otp(request):
-    contact_number = request.data.get('contact_number')
+    username = request.data.get('username')
     otp = request.data.get('otp')
 
-    if not contact_number or not otp:
-        return Response({'success': False, 'error': 'Contact number and OTP are required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not username or not otp:
+        return Response({'success': False, 'error': 'Username and OTP are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    cached_otp = cache.get(f"login_otp_{contact_number}")
+    cached_otp = cache.get(f"login_otp_{username}")
     if cached_otp is None:
         return Response({'success': False, 'error': 'OTP expired or not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
     if cached_otp != otp:
         return Response({'success': False, 'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    cache.delete(f"login_otp_{contact_number}")
+    cache.delete(f"login_otp_{username}")
 
     # Get user and generate JWT tokens
     try:
-        user = AdminUser.objects.get(contact_number=contact_number)
+        user = AdminUser.objects.get(username=username)
     except AdminUser.DoesNotExist:
         return Response({'success': False, 'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     access_payload = {
+        'username': user.username,
         'contact_number': user.contact_number,
         'name': user.name,
         'email': user.email,
@@ -187,6 +196,7 @@ def verify_login_otp(request):
     }
 
     refresh_payload = {
+        'username': user.username,
         'contact_number': user.contact_number,
         'type': 'refresh',
         'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)  # long lifespan
@@ -221,6 +231,7 @@ def refresh_token(request):
 
         # Generate a new short-lived access token
         new_access_payload = {
+            'username': decoded['username'],
             'contact_number': decoded['contact_number'],
             'type': 'access',
             'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=settings.JWT_ACCESS_TOKEN_LIFETIME_MINUTES)
@@ -249,6 +260,7 @@ def decode_token(request):
     # If the token is valid, the authenticated user is available in request.admin_user.
     
     decoded_data = {
+        'username': request.admin_user.username,
         'contact_number': request.admin_user.contact_number,
         'name': request.admin_user.name,
         'email': request.admin_user.email,
@@ -278,22 +290,22 @@ def logout(request):
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def resend_signup_otp(request):
-    contact_number = request.data.get('contact_number')
-    if not contact_number:
-        return Response({'success': False, 'error': 'Contact number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    username = request.data.get('username')
+    if not username:
+        return Response({'success': False, 'error': 'Username is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    cached_data = cache.get(f"signup_otp_{contact_number}")
+    cached_data = cache.get(f"signup_otp_{username}")
     if not cached_data:
-        return Response({'success': False, 'error': 'No active signup process found for this contact number.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'success': False, 'error': 'No active signup process found for this username.'}, status=status.HTTP_400_BAD_REQUEST)
 
     otp = str(random.randint(100000, 999999))
     cached_data['otp'] = otp
-    cache.set(f"signup_otp_{contact_number}", cached_data, timeout=settings.OTP_EXPIRY_MINUTES * 60)
+    cache.set(f"signup_otp_{username}", cached_data, timeout=settings.OTP_EXPIRY_MINUTES * 60)
 
     return Response({'success': True, 'response': {
         'message': 'New OTP generated successfully (valid for 15 minutes)',
         'otp': otp,
-        'contact_number': contact_number
+        'username': username
     }}, status=status.HTTP_200_OK)
 
 
@@ -303,21 +315,21 @@ def resend_signup_otp(request):
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def resend_login_otp(request):
-    contact_number = request.data.get('contact_number')
-    if not contact_number:
-        return Response({'success': False, 'error': 'Contact number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    username = request.data.get('username')
+    if not username:
+        return Response({'success': False, 'error': 'Username is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    cached_otp = cache.get(f"login_otp_{contact_number}")
+    cached_otp = cache.get(f"login_otp_{username}")
     if not cached_otp:
-        return Response({'success': False, 'error': 'No active login process found for this contact number.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'success': False, 'error': 'No active login process found for this username.'}, status=status.HTTP_400_BAD_REQUEST)
 
     otp = str(random.randint(100000, 999999))
-    cache.set(f"login_otp_{contact_number}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
+    cache.set(f"login_otp_{username}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
 
     return Response({'success': True, 'response': {
         'message': 'New OTP generated successfully (valid for 15 minutes)',
         'otp': otp,
-        'contact_number': contact_number
+        'username': username
     }}, status=status.HTTP_200_OK)
 
 
@@ -327,21 +339,21 @@ def resend_login_otp(request):
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def resend_reset_password_otp(request):
-    contact_number = request.data.get('contact_number')
-    if not contact_number:
-        return Response({'success': False, 'error': 'Contact number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    username = request.data.get('username')
+    if not username:
+        return Response({'success': False, 'error': 'Username is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    cached_otp = cache.get(f"reset_password_otp_{contact_number}")
+    cached_otp = cache.get(f"reset_password_otp_{username}")
     if not cached_otp:
-        return Response({'success': False, 'error': 'No active password reset process found for this contact number.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'success': False, 'error': 'No active password reset process found for this username.'}, status=status.HTTP_400_BAD_REQUEST)
 
     otp = str(random.randint(100000, 999999))
-    cache.set(f"reset_password_otp_{contact_number}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
+    cache.set(f"reset_password_otp_{username}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
 
     return Response({'success': True, 'response': {
         'message': 'New password reset OTP generated successfully (valid for 15 minutes)',
         'otp': otp,
-        'contact_number': contact_number
+        'username': username
     }}, status=status.HTTP_200_OK)
 
 
@@ -351,24 +363,24 @@ def resend_reset_password_otp(request):
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def forgot_password_request(request):
-    contact_number = request.data.get('contact_number')
+    username = request.data.get('username')
     email = request.data.get('email')
 
-    if not contact_number or not email:
-        return Response({'success': False, 'error': 'Contact number and email are required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not username or not email:
+        return Response({'success': False, 'error': 'Username and email are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        user = AdminUser.objects.get(contact_number=contact_number, email=email)
+        user = AdminUser.objects.get(username=username, email=email)
     except AdminUser.DoesNotExist:
-        return Response({'success': False, 'error': 'User with provided contact number and email not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'success': False, 'error': 'User with provided username and email not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     otp = str(random.randint(100000, 999999))
-    cache.set(f"reset_password_otp_{contact_number}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
+    cache.set(f"reset_password_otp_{username}", otp, timeout=settings.OTP_EXPIRY_MINUTES * 60)
 
     return Response({'success': True, 'response': {
         'message': 'OTP for password reset generated successfully (valid for 15 minutes)',
         'otp': otp,
-        'contact_number': contact_number
+        'username': username
     }}, status=status.HTTP_200_OK)
 
 
@@ -380,10 +392,13 @@ def forgot_password_request(request):
 def verify_reset_otp(request):
     serializer = AdminVerifyOtpSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    contact_number = serializer.validated_data['contact_number']
+    username = serializer.validated_data.get('username') # Need to update serializer
     otp = serializer.validated_data['otp']
 
-    cached_otp = cache.get(f"reset_password_otp_{contact_number}")
+    if not username:
+         username = request.data.get('username')
+
+    cached_otp = cache.get(f"reset_password_otp_{username}")
     if not cached_otp:
         return Response({'success': False, 'error': 'OTP expired or not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -392,14 +407,14 @@ def verify_reset_otp(request):
 
     # OTP is valid, generate a temporary token for the final reset step
     reset_token_payload = {
-        'contact_number': contact_number,
+        'username': username,
         'type': 'password_reset',
         'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=settings.OTP_EXPIRY_MINUTES)
     }
     reset_token = jwt.encode(reset_token_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     # Clean up the OTP from cache as it's been used
-    cache.delete(f"reset_password_otp_{contact_number}")
+    cache.delete(f"reset_password_otp_{username}")
 
     return Response({'success': True, 'response': {
         'message': 'OTP verified successfully. Use this token to reset your password.',
@@ -428,8 +443,8 @@ def reset_password(request):
         if decoded.get('type') != 'password_reset':
             return Response({'success': False, 'error': 'Invalid token type for password reset.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        contact_number = decoded['contact_number']
-        user = AdminUser.objects.get(contact_number=contact_number)
+        username = decoded['username']
+        user = AdminUser.objects.get(username=username)
         user.password = make_password(password)
         user.save()
         return Response({'success': True, 'response': {'message': 'Password reset successful.'}}, status=status.HTTP_200_OK)

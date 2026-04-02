@@ -11,5 +11,8 @@ python manage.py collectstatic --no-input
 python manage.py makemigrations 
 python manage.py migrate --noinput
 
+# Create Cache Table for Database Tracking (Required for Render)
+python manage.py createcachetable
+
 # Create admin user
 python create_admin.py

@@ -4,6 +4,7 @@ from rest_framework import status
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.utils.decorators import method_decorator
+import uuid
 import base64
 import mimetypes
 import logging
@@ -41,9 +42,15 @@ class DoctorPersonalDetailsView(APIView):
             cache_key = f"doctor_personal_details_{contact_number}"
             cache.set(cache_key, validated_data, timeout=CACHE_TIMEOUT)
 
+            # Create a Session Mapping for the Frontend
+            temp_id = uuid.uuid4().hex
+            session_key = f"doctor_onboarding_session_{temp_id}"
+            cache.set(session_key, contact_number, timeout=CACHE_TIMEOUT)
+
             return api_response(
                 success=True,
                 message="Step 1 of 4: Personal details saved temporarily.",
+                data={"temp_id": temp_id},
                 status_code=status.HTTP_200_OK
             )
         return api_response(
@@ -180,15 +187,6 @@ class DoctorProfilePhotoView(APIView):
 
         contact_number = serializer.validated_data['contact_number']
         photo_data = serializer.validated_data['photo_data']['content']
-
-        # Check if personal details are in cache first
-        personal_details_cache_key = f"doctor_personal_details_{contact_number}"
-        if not cache.get(personal_details_cache_key):
-            return api_response(
-                success=False,
-                message="Personal details not found in cache. Please complete step 1 first.",
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
 
         # Save photo data to cache
         photo_cache_key = f"doctor_profile_photo_{contact_number}"

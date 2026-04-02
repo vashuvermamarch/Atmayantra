@@ -12,7 +12,7 @@ from Atmayantra.utils import api_response
 
 import logging
 import jwt
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # ✅ USE CUSTOM TOKEN
 from .custom_tokens import CustomRefreshToken
@@ -90,7 +90,8 @@ class AuthViewSet(viewsets.GenericViewSet):
             "username": user.username,
             "phone_number": user.phone_number,
             "user_type": user.user_type,
-            "iat": datetime.utcnow()
+            "iat": datetime.utcnow(),
+            "exp": datetime.utcnow() + timedelta(minutes=settings.SIGNUP_TOKEN_LIFETIME_MINUTES)
         }
 
         signup_token = jwt.encode(signup_payload, settings.SECRET_KEY, algorithm="HS256")
@@ -120,67 +121,104 @@ class AuthViewSet(viewsets.GenericViewSet):
         }, status.HTTP_200_OK)
 
     # ------------------------------------------------------------
-    # 3️⃣ LOGIN
+    # 3️⃣ LOGIN REQUEST (Step 1: Credentials Check + OTP Generation)
     # ------------------------------------------------------------
     @action(detail=False, methods=['post'])
-    def login(self, request):
-
+    def login_request(self, request):
         username = request.data.get("username")
+        phone_number = request.data.get("phone_number")
         password = request.data.get("password")
         signup_token = request.data.get("signup_token")
 
-        if not username or not password:
-            return api_response(False, "Username and password required.", status.HTTP_400_BAD_REQUEST)
+        if not password:
+            return api_response(False, "Password is required.", status.HTTP_400_BAD_REQUEST)
 
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            return api_response(False, "User not found.", status.HTTP_404_NOT_FOUND)
+        # 1. IDENTIFY USER
+        if username:
+            # Manager Case
+            try:
+                user = User.objects.get(username=username)
+                if user.user_type != User.UserType.MANAGER:
+                    return api_response(False, "Unauthorized user type. Managers must use username, others must use phone number.", status.HTTP_403_FORBIDDEN)
+            except User.DoesNotExist:
+                return api_response(False, "Manager not found with this username.", status.HTTP_404_NOT_FOUND)
+            id_key = username
+        elif phone_number:
+            # Doctor/Trainer Case
+            if not signup_token:
+                return api_response(False, "signup_token is required for this role.", status.HTTP_400_BAD_REQUEST)
+            try:
+                user = User.objects.get(phone_number=phone_number)
+                if user.user_type == User.UserType.MANAGER:
+                    return api_response(False, "Managers must log in with their username.", status.HTTP_403_FORBIDDEN)
+                
+                # Verify signup_token
+                try:
+                    decoded = jwt.decode(signup_token, settings.SECRET_KEY, algorithms=["HS256"])
+                    if decoded.get("phone_number") != user.phone_number:
+                        return api_response(False, "Signup token does not match this account.", status.HTTP_403_FORBIDDEN)
+                except jwt.ExpiredSignatureError:
+                    return api_response(False, "Signup token has expired. Please refresh it.", status.HTTP_403_FORBIDDEN)
+                except:
+                    return api_response(False, "Invalid signup token.", status.HTTP_403_FORBIDDEN)
+                    
+            except User.DoesNotExist:
+                return api_response(False, "User not found with this phone number.", status.HTTP_404_NOT_FOUND)
+            id_key = phone_number
+        else:
+            return api_response(False, "Identification (username or phone_number) required.", status.HTTP_400_BAD_REQUEST)
 
+        # 2. CHECK PASSWORD
         if not user.check_password(password):
             return api_response(False, "Invalid password.", status.HTTP_400_BAD_REQUEST)
 
-        # ✅ MANAGER LOGIN
-        if user.user_type == User.UserType.MANAGER:
+        # 3. VERIFICATION CHECKS
+        if not user.is_verified:
+            return api_response(False, "Account not verified.", status.HTTP_403_FORBIDDEN)
+        if not user.is_active:
+            return api_response(False, "Account not active. Please wait for admin approval.", status.HTTP_403_FORBIDDEN)
 
-            if not user.is_verified:
-                return api_response(False, "Manager not verified.", status.HTTP_403_FORBIDDEN)
+        # 4. GENERATE OTP
+        otp = str(randint(100000, 999999))
+        cache.set(f'otp_login_{id_key}', otp, timeout=300)
 
-            if not user.is_active:
-                return api_response(False, "Manager not active.", status.HTTP_403_FORBIDDEN)
+        return api_response(True, "Login OTP sent successfully.", {
+            "id_key": id_key,
+            "otp": otp # For development/testing
+        }, status.HTTP_200_OK)
 
-            refresh = CustomRefreshToken.for_user(user)
+    # ------------------------------------------------------------
+    # 4️⃣ VERIFY LOGIN (Step 2: OTP Verification + Token Issuance)
+    # ------------------------------------------------------------
+    @action(detail=False, methods=['post'])
+    def verify_login(self, request):
+        username = request.data.get("username")
+        phone_number = request.data.get("phone_number")
+        otp = request.data.get("otp")
 
-            UserRefreshToken.objects.create(
-                user=user,
-                refresh_token=str(refresh)
-            )
+        # Determine which identifier was used
+        id_key = username if username else phone_number
 
-            return api_response(True, "Manager login successful.", {
-                "refresh": str(refresh),
-                "access": str(refresh.access_token)
-            }, status.HTTP_200_OK)
+        if not id_key or not otp:
+            return api_response(False, "Identification and OTP are required.", status.HTTP_400_BAD_REQUEST)
 
-        # ✅ NORMAL USER LOGIN
-        if not signup_token:
-            return api_response(False, "signup_token required.", status.HTTP_400_BAD_REQUEST)
+        stored_otp = cache.get(f'otp_login_{id_key}')
+        if not stored_otp or stored_otp != otp:
+            return api_response(False, "Invalid or expired OTP.", status.HTTP_400_BAD_REQUEST)
 
         try:
-            decoded = jwt.decode(signup_token, settings.SECRET_KEY, algorithms=["HS256"])
-        except:
-            return api_response(False, "Invalid signup token.", status.HTTP_400_BAD_REQUEST)
+            if username:
+                user = User.objects.get(username=username)
+            else:
+                user = User.objects.get(phone_number=phone_number)
+        except User.DoesNotExist:
+            return api_response(False, "User accounts could not be verified.", status.HTTP_404_NOT_FOUND)
 
-        if decoded["username"] != user.username:
-            return api_response(False, "Signup token mismatch.", status.HTTP_400_BAD_REQUEST)
+        # Clean Up
+        cache.delete(f'otp_login_{id_key}')
 
-        if not user.is_verified:
-            return api_response(False, "User not verified.", status.HTTP_403_FORBIDDEN)
-
-        if not user.is_active:
-            return api_response(False, "User not active.", status.HTTP_403_FORBIDDEN)
-
+        # Issue Tokens
         refresh = CustomRefreshToken.for_user(user)
-
         UserRefreshToken.objects.create(
             user=user,
             refresh_token=str(refresh)
@@ -245,3 +283,51 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         except User.DoesNotExist:
             return api_response(False, "User not found", status.HTTP_404_NOT_FOUND)
+
+    # ------------------------------------------------------------
+    # 7️⃣ REFRESH SIGNUP TOKEN
+    # ------------------------------------------------------------
+    @action(detail=False, methods=['post'])
+    def refresh_signup_token(self, request):
+        """
+        Refreshes a short-lived signup_token using a signup_refresh_token.
+        """
+        refresh_token = request.data.get("signup_refresh_token")
+
+        if not refresh_token:
+            return api_response(False, "signup_refresh_token is required.", status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # 1. Verify existence in DB
+            stored_refresh = SignupRefreshToken.objects.get(token=refresh_token)
+            user = stored_refresh.user
+
+            # 2. Decode and verify the refresh token itself
+            decoded = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=["HS256"])
+            
+            if decoded.get("type") != "signup_refresh":
+                return api_response(False, "Invalid token type.", status.HTTP_400_BAD_REQUEST)
+
+            # 3. Generate a new short-lived signup_token
+            new_signup_payload = {
+                "username": user.username,
+                "phone_number": user.phone_number,
+                "user_type": user.user_type,
+                "iat": datetime.utcnow(),
+                "exp": datetime.utcnow() + timedelta(minutes=settings.SIGNUP_TOKEN_LIFETIME_MINUTES)
+            }
+            new_signup_token = jwt.encode(new_signup_payload, settings.SECRET_KEY, algorithm="HS256")
+
+            return api_response(True, "Signup token refreshed successfully.", {
+                "signup_token": new_signup_token
+            }, status.HTTP_200_OK)
+
+        except SignupRefreshToken.DoesNotExist:
+            return api_response(False, "Refresh token not found or already used.", status.HTTP_401_UNAUTHORIZED)
+        except jwt.ExpiredSignatureError:
+            return api_response(False, "Signup refresh token has expired. Please signup again.", status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return api_response(False, "Invalid signup refresh token.", status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            logger.error(f"Error in refresh_signup_token: {str(e)}")
+            return api_response(False, "An unexpected error occurred.", status.HTTP_500_INTERNAL_SERVER_ERROR)
