@@ -1,0 +1,15 @@
+[Unit]
+Description=Atmayantra Gunicorn Service
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/Atmayantra-tryone/Atmayantra
+EnvironmentFile=/home/ubuntu/Atmayantra-tryone/Atmayantra/.env
+ExecStart=/home/ubuntu/Atmayantra-tryone/venv/bin/gunicorn \
+          --config /home/ubuntu/Atmayantra-tryone/deploy/gunicorn_config.py \
+          Atmayantra.wsgi:application
+
+[Install]
+WantedBy=multi-user.target

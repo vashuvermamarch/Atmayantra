@@ -21,8 +21,31 @@ ALLOWED_HOSTS=os.environ.get(
 ).split(",")
 
 RENDER_EXTERNAL_HOSTNAME=os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+AWS_APP_RUNNER_HOSTNAME=os.environ.get("AWS_APP_RUNNER_HOSTNAME")
+EC2_PUBLIC_IP=os.environ.get("EC2_PUBLIC_IP")
+
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+if AWS_APP_RUNNER_HOSTNAME:
+    ALLOWED_HOSTS.append(AWS_APP_RUNNER_HOSTNAME)
+
+if EC2_PUBLIC_IP:
+    ALLOWED_HOSTS.append(EC2_PUBLIC_IP)
+
+# ------------------------------------------------------
+# CSRF + SECURITY
+# ------------------------------------------------------
+CSRF_TRUSTED_ORIGINS=[]
+trusted_origins_env=os.environ.get("CSRF_TRUSTED_ORIGINS","")
+if trusted_origins_env:
+    CSRF_TRUSTED_ORIGINS.extend(trusted_origins_env.split(","))
+
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+
+if AWS_APP_RUNNER_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{AWS_APP_RUNNER_HOSTNAME}")
 
 if not DEBUG:
     CSRF_COOKIE_SECURE=True
@@ -114,13 +137,26 @@ WSGI_APPLICATION="Atmayantra.wsgi.application"
 # ------------------------------------------------------
 # DATABASE
 # ------------------------------------------------------
-DATABASES={
-    "default":dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+db_url=os.environ.get("DATABASE_URL")
+if db_url and "amazonaws.com" in db_url:
+    # RDS specific configuration with SSL
+    DATABASES={
+        "default":dj_database_url.config(
+            default=db_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
+    }
+else:
+    # Default (SQLite or standard Database URL)
+    DATABASES={
+        "default":dj_database_url.config(
+            default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
 
 
 # ------------------------------------------------------
@@ -181,6 +217,24 @@ STATICFILES_STORAGE="whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL="/media/"
 MEDIA_ROOT=BASE_DIR / "media"
+
+# ------------------------------------------------------
+# AWS S3 STORAGE (PRODUCTION)
+# ------------------------------------------------------
+AWS_ACCESS_KEY_ID=os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY=os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME=os.environ.get("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME=os.environ.get("AWS_S3_REGION_NAME","us-east-1")
+
+if all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME]):
+    DEFAULT_FILE_STORAGE="storages.backends.s3boto3.S3Boto3Storage"
+    AWS_S3_FILE_OVERWRITE=False
+    AWS_DEFAULT_ACL=None
+    AWS_S3_VERIFY=True
+    # Custom URL for S3 if using CloudFront or specific domain
+    AWS_S3_CUSTOM_DOMAIN=os.environ.get("AWS_S3_CUSTOM_DOMAIN")
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL=f"https://{AWS_S3_CUSTOM_DOMAIN}/"
 
 
 # ------------------------------------------------------
@@ -250,7 +304,19 @@ SIGNUP_TOKEN_LIFETIME_MINUTES=int(
 # ------------------------------------------------------
 # EMAIL (SMTP FOR MANAGER CREDENTIALS)
 # ------------------------------------------------------
-EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
+AWS_SES_ACCESS_KEY_ID=os.environ.get("AWS_SES_ACCESS_KEY_ID")
+AWS_SES_SECRET_ACCESS_KEY=os.environ.get("AWS_SES_SECRET_ACCESS_KEY")
+AWS_SES_REGION_NAME=os.environ.get("AWS_SES_REGION_NAME","us-east-1")
+
+if all([AWS_SES_ACCESS_KEY_ID, AWS_SES_SECRET_ACCESS_KEY]):
+    # Use AWS SES
+    EMAIL_BACKEND="django_ses.SESBackend"
+    AWS_SES_ACCESS_KEY_ID=AWS_SES_ACCESS_KEY_ID
+    AWS_SES_SECRET_ACCESS_KEY=AWS_SES_SECRET_ACCESS_KEY
+    AWS_SES_REGION_NAME=AWS_SES_REGION_NAME
+else:
+    # Fallback to standard SMTP (Local/Gmail)
+    EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
 
 EMAIL_HOST=os.environ.get("EMAIL_HOST","smtp.gmail.com")
 EMAIL_PORT=int(os.environ.get("EMAIL_PORT",587))

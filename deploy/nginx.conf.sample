@@ -1,0 +1,23 @@
+server {
+    listen 80;
+    server_name your_domain.com your_ec2_public_ip;
+
+    # Redirect all HTTP traffic to HTTPS (if you have SSL)
+    # return 301 https://$host$request_uri;
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    
+    # Static files (handled by Whitenoise, but Nginx can also serve them for performance)
+    # location /static/ {
+    #     root /home/ubuntu/Atmayantra-tryone/Atmayantra;
+    # }
+
+    location / {
+        include proxy_params;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
