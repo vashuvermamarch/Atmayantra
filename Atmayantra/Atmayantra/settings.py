@@ -148,8 +148,17 @@ if db_url and "amazonaws.com" in db_url:
             ssl_require=True,
         )
     }
+elif db_url:
+    # Local PostgreSQL or any other database URL
+    DATABASES={
+        "default":dj_database_url.config(
+            default=db_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
 else:
-    # Default (SQLite or standard Database URL)
+    # Fallback to SQLite (only when DATABASE_URL is not set)
     DATABASES={
         "default":dj_database_url.config(
             default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
