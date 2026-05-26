@@ -137,6 +137,8 @@ WSGI_APPLICATION="Atmayantra.wsgi.application"
 # DATABASE
 # ------------------------------------------------------
 db_url=os.environ.get("DATABASE_URL")
+db_name=os.environ.get("DB_NAME")
+
 if db_url and "amazonaws.com" in db_url:
     # RDS specific configuration with SSL
     DATABASES={
@@ -155,6 +157,19 @@ elif db_url:
             conn_max_age=600,
             conn_health_checks=True,
         )
+    }
+elif db_name:
+    # Individual database parameters (typically on EC2)
+    DATABASES={
+        "default":{
+            "ENGINE":"django.db.backends.postgresql",
+            "NAME":db_name,
+            "USER":os.environ.get("DB_USER"),
+            "PASSWORD":os.environ.get("DB_PASSWORD"),
+            "HOST":os.environ.get("DB_HOST"),
+            "PORT":os.environ.get("DB_PORT","5432"),
+            "CONN_MAX_AGE":600,
+        }
     }
 else:
     # Fallback to SQLite (only when DATABASE_URL is not set)
