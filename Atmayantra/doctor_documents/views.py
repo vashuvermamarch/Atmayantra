@@ -1,17 +1,17 @@
-from rest_framework.views import APIView
-from rest_framework import status
-from django.core.cache import cache
-from django.http import HttpResponse
 import base64
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 import uuid
-from doctor_personal_details.models import DoctorPersonalDetails
 
-from .serializers import DoctorDocumentSerializer
-from .models import DoctorDocument
 from Atmayantra.utils import api_response
 from common.permissions import IsAuthenticatedOrPostOnly
+from django.core.cache import cache
+from django.http import HttpResponse
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from .models import DoctorDocument
+from .serializers import DoctorDocumentSerializer
 
 CACHE_TIMEOUT = 86400  # 24 hours
 
@@ -34,7 +34,7 @@ class DoctorDocumentView(APIView):
         serializer = DoctorDocumentSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
-            
+
             # Always save to cache during onboarding
             # First, check if step 1 was completed
             personal_details_cache_key = f"doctor_personal_details_{contact_number}"
@@ -57,12 +57,12 @@ class DoctorDocumentView(APIView):
                 'file': file_dict
             }
             documents.append(document_data)
-            
+
             # Save the updated list of documents back to the cache
             cache.set(documents_cache_key, documents, timeout=CACHE_TIMEOUT)
 
             return api_response(True, "Step 3 of 4: Document saved temporarily.", {'document_id': document_id}, status_code=status.HTTP_200_OK)
-        
+
         return api_response(False, "Invalid data provided.", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request, contact_number, *args, **kwargs):
@@ -79,7 +79,7 @@ class DoctorDocumentView(APIView):
                 # Serialize the documents
                 serializer = DoctorDocumentSerializer(doctor_documents, many=True)
                 documents = serializer.data
-                
+
                 # Store in cache for future requests
                 cache.set(documents_cache_key, documents, timeout=CACHE_TIMEOUT)
 
@@ -101,7 +101,7 @@ class DoctorDocumentView(APIView):
         serializer = DoctorDocumentSerializer(document, data=request.data)
         if serializer.is_valid():
             validated_data = serializer.validated_data
-            
+
             # Handle file update if a new file is provided
             if 'file' in validated_data:
                 file_dict = validated_data.pop('file')
@@ -117,7 +117,7 @@ class DoctorDocumentView(APIView):
             # Return the updated data
             response_serializer = DoctorDocumentSerializer(document)
             return api_response(True, "Document updated successfully.", response_serializer.data, status_code=status.HTTP_200_OK)
-        
+
         return api_response(False, "Invalid data provided.", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, contact_number, document_id, *args, **kwargs):
@@ -150,7 +150,7 @@ class DoctorDocumentView(APIView):
 
             response_serializer = DoctorDocumentSerializer(document)
             return api_response(True, "Document updated successfully.", response_serializer.data, status_code=status.HTTP_200_OK)
-        
+
         return api_response(False, "Invalid data provided.", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, contact_number, document_id, *args, **kwargs):
@@ -161,7 +161,7 @@ class DoctorDocumentView(APIView):
             # First, delete from the database
             document = DoctorDocument.objects.get(id=document_id, doctor__contact_number=contact_number)
             document.delete()
-            
+
             # Then, remove from cache if it exists
             documents_cache_key = f"doctor_documents_{contact_number}"
             documents = cache.get(documents_cache_key)
@@ -184,7 +184,7 @@ class DoctorDocumentView(APIView):
                         document_found = True
                     else:
                         updated_documents.append(doc)
-                
+
                 if document_found:
                     cache.set(documents_cache_key, updated_documents, timeout=CACHE_TIMEOUT)
                     return api_response(True, "Document deleted successfully from cache.", status_code=status.HTTP_200_OK)
@@ -198,7 +198,7 @@ class DoctorDocumentDownloadView(APIView):
     def get(self, request, contact_number, document_id, *args, **kwargs):
         try:
             document = DoctorDocument.objects.get(id=document_id, doctor__contact_number=contact_number)
-            
+
             file_data_b64 = document.file_data
             if not file_data_b64:
                 return api_response(False, "File data not found for this document.", status_code=status.HTTP_404_NOT_FOUND)
@@ -209,7 +209,7 @@ class DoctorDocumentDownloadView(APIView):
                     header, encoded = file_data_b64.split(',', 1)
                 else:
                     encoded = file_data_b64
-                
+
                 file_data = base64.b64decode(encoded)
             except (ValueError, TypeError) as e:
                 return api_response(False, f"Error decoding file data: {str(e)}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

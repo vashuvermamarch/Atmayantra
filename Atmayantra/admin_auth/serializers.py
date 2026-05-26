@@ -1,6 +1,8 @@
-from rest_framework import serializers
-from .models import AdminUser
 from django.contrib.auth.hashers import make_password
+from rest_framework import serializers
+
+from .models import AdminUser
+
 
 class AdminSignUpSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)

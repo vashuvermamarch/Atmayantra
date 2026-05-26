@@ -1,5 +1,5 @@
-from django.db import models
 from authapp.models import User
+from django.db import models
 
 
 class ManagerPersonalDetails(models.Model):

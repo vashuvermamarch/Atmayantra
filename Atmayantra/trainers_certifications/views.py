@@ -1,22 +1,22 @@
-from django.core.cache import cache
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
-from authapp.decorators import login_required
-from Atmayantra.utils import api_response   # ✅ using api_response now
-
-from .models import TrainerCertification
-from .serializers import TrainerCertificationSerializer
-from trainers_personal_detials.models import TrainerPersonalDetails
-
 import uuid
 from datetime import datetime
 
+from Atmayantra.utils import api_response  # ✅ using api_response now
+from authapp.decorators import login_required
+from django.core.cache import cache
+from rest_framework import permissions, viewsets
+from rest_framework.decorators import action
+from trainers_personal_detials.models import TrainerPersonalDetails
+
+from .models import TrainerCertification
+from .serializers import TrainerCertificationSerializer
+
 CACHE_TTL = 60 * 60 * 24  # 24 hours
 
-def personal_key(cn): 
+def personal_key(cn):
     return f"trainer_personal_details_{cn}"
 
-def cert_key(cn): 
+def cert_key(cn):
     return f"trainer_certification_{cn}"
 
 def to_bool(value):

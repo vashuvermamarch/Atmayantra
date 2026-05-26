@@ -13,8 +13,8 @@ def send_manager_credentials(email, username, employee_id, contact_number, passw
     Sends manager credentials via Gmail SMTP.
     Works on both local and Azure (SMTP-friendly platforms).
     """
-    from django.core.mail import send_mail
     from django.conf import settings
+    from django.core.mail import send_mail
 
     subject = "Manager Account Created"
     message = f"""Manager Account Created

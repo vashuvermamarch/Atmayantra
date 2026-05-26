@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class AdminUser(models.Model):
     contact_number = models.CharField(max_length=15, primary_key=True)
     username = models.CharField(max_length=50, unique=True, null=True, blank=True)

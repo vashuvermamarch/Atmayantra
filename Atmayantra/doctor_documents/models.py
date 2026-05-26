@@ -1,6 +1,7 @@
 from django.db import models
 from doctor_personal_details.models import DoctorPersonalDetails
 
+
 class DoctorDocument(models.Model):
     doctor = models.ForeignKey(DoctorPersonalDetails, to_field='contact_number', on_delete=models.CASCADE, related_name='documents')
     doc_type = models.CharField(max_length=255)

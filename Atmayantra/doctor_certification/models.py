@@ -1,6 +1,7 @@
 from django.db import models
 from doctor_personal_details.models import DoctorPersonalDetails
 
+
 class DoctorCertification(models.Model):
     doctor = models.OneToOneField(DoctorPersonalDetails, on_delete=models.CASCADE, primary_key=True, related_name='certification')
     highest_degree = models.CharField(max_length=100)

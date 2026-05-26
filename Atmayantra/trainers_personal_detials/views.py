@@ -1,3 +1,7 @@
+from datetime import datetime
+
+from Atmayantra.utils import api_response
+from authapp.decorators import login_required
 from django.core.cache import cache
 from django.http import HttpResponse
 from rest_framework import viewsets
@@ -5,13 +9,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from datetime import datetime
-
 from .models import TrainerPersonalDetails
 from .serializers import TrainerPersonalDetailSerializer
-from authapp.decorators import login_required
-from Atmayantra.utils import api_response
-
 
 CACHE_TTL = 60 * 60 * 24  # 24 hours
 

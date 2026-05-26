@@ -1,6 +1,8 @@
-from rest_framework import serializers
-from .models import DoctorDocument
 from common.fields import Base64StringFileField
+from rest_framework import serializers
+
+from .models import DoctorDocument
+
 
 class DoctorDocumentSerializer(serializers.ModelSerializer):
     file = Base64StringFileField(required=False, write_only=True)

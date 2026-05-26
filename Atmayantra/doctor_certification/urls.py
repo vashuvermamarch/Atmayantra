@@ -1,10 +1,11 @@
 from django.urls import path
+
 from .views import (
     DoctorCertificationView,
-    GraduationCertificateDownloadView,
     ExperienceLetterDownloadView,
+    GraduationCertificateDownloadView,
+    LicenseDownloadView,
     ResumeCvDownloadView,
-    LicenseDownloadView
 )
 
 urlpatterns = [

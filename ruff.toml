@@ -1,0 +1,36 @@
+# Ruff configuration file
+# For more info: https://docs.astral.sh/ruff/
+
+line-length = 120
+target-version = "py310"
+
+[lint]
+# Enable Pyflakes (F) and pycodestyle (E, W) codes by default.
+# Also enable isort (I) for import sorting.
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # Line too long (we have long lines in urls, views, etc.)
+    "E722",  # Do not use bare `except` (used frequently in legacy views)
+    "E402",  # Module level import not at top of file (required for setup scripts/logging)
+    "F841",  # Local variable assigned but unused
+    "F811",  # Redefinition of unused name
+]
+
+# Exclude a variety of common directories.
+exclude = [
+    ".git",
+    ".github",
+    "__pycache__",
+    "build.sh",
+    "db.sqlite3",
+    "venv",
+    "django_cache",
+    "logs",
+    "staticfiles",
+    "**/migrations/*",
+    "migrations",
+]
+
+[lint.isort]
+combine-as-imports = true
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]

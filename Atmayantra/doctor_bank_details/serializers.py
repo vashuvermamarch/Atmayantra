@@ -1,8 +1,8 @@
-import base64
+from common.fields import Base64StringFileField
 from rest_framework import serializers
+
 from .models import DoctorBankDetails
-from common.fields import Base64FileField, Base64StringFileField
-from django.urls import reverse
+
 
 class DoctorBankDetailsReadSerializer(serializers.ModelSerializer):
     bank_qr_code = serializers.SerializerMethodField()
@@ -90,6 +90,6 @@ class DoctorBankDetailsWriteSerializer(serializers.ModelSerializer):
                 instance.bank_qr_code_content_type = qr_code_data.get('content_type')
             else:
                 instance.bank_qr_code = None
-        
+
         instance.save()
         return instance

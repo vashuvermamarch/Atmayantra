@@ -1,5 +1,7 @@
 from django.contrib import admin
+
 from .models import TrainerCertification
+
 
 @admin.register(TrainerCertification)
 class TrainerCertificationAdmin(admin.ModelAdmin):

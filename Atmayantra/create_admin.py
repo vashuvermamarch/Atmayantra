@@ -1,12 +1,13 @@
 import os
+
 import django
 
 # Set the Django settings module
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Atmayantra.settings')
 django.setup()
 
-from django.contrib.auth import get_user_model
 from admin_auth.models import AdminUser
+from django.contrib.auth import get_user_model
 
 User = get_user_model()
 

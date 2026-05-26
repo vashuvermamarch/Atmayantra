@@ -1,5 +1,7 @@
 from django.contrib import admin
+
 from .models import DoctorBankDetails
+
 
 @admin.register(DoctorBankDetails)
 class DoctorBankDetailsAdmin(admin.ModelAdmin):

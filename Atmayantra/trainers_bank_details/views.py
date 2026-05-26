@@ -1,18 +1,16 @@
+from Atmayantra.utils import api_response
+from authapp.decorators import login_required
 from django.core.cache import cache
 from django.db import transaction
 from django.http import Http404, HttpResponse
-from rest_framework import viewsets, permissions
+from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
-
-from authapp.decorators import login_required
-from Atmayantra.utils import api_response
-
-from trainers_personal_detials.models import TrainerPersonalDetails
 from trainers_certifications.models import TrainerCertification
 from trainers_documents.models import TrainerDocument
+from trainers_personal_detials.models import TrainerPersonalDetails
+
 from .models import TrainerBankDetails
 from .serializers import TrainerBankDetailsSerializer
-
 
 CACHE_TTL = 60 * 60 * 24
 

@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class TrainerPersonalDetails(models.Model):
     """
     Stores personal details for a trainer.

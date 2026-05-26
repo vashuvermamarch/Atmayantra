@@ -1,34 +1,26 @@
-from rest_framework.decorators import api_view, parser_classes
-from .decorators import admin_login_required
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.response import Response
-from rest_framework import status
-from django.core.cache import cache
-from django.conf import settings
-from .models import AdminUser
-from django.contrib.auth.hashers import make_password, check_password
-from .serializers import AdminVerifyOtpSerializer
-import random
-import jwt
 import datetime
-from django.db import IntegrityError, transaction
-from authapp.models import User
-from .manager_onboarding_services import (
-    generate_manager_password,
-    send_manager_credentials
-)
-
-from .temp_manager_models import (
-    TempManagerPersonal,
-    TempManagerDocument,
-    TempManagerBank
-)
-
-from manager_personal_details.models import ManagerPersonalDetails
-from manager_documents.models import ManagerDocument
-from manager_bank_details.models import ManagerBankDetails
 import random
+
+import jwt
 from authapp.models import User
+from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
+from django.core.cache import cache
+from django.db import transaction
+from manager_bank_details.models import ManagerBankDetails
+from manager_documents.models import ManagerDocument
+from manager_personal_details.models import ManagerPersonalDetails
+from rest_framework import status
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
+
+from .decorators import admin_login_required
+from .manager_onboarding_services import generate_manager_password, send_manager_credentials
+from .models import AdminUser
+from .serializers import AdminVerifyOtpSerializer
+from .temp_manager_models import TempManagerBank, TempManagerDocument, TempManagerPersonal
+
 
 def generate_unique_username(base_username):
     username = base_username
@@ -248,7 +240,6 @@ def refresh_token(request):
         return Response({'success': False, 'error': 'Invalid refresh token.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-from .decorators import admin_login_required
 
 # -----------------------------------------------------------
 # STEP 6: Decode JWT Token (GET request)
@@ -258,14 +249,14 @@ from .decorators import admin_login_required
 def decode_token(request):
     # The admin_login_required decorator handles token decoding and user authentication.
     # If the token is valid, the authenticated user is available in request.admin_user.
-    
+
     decoded_data = {
         'username': request.admin_user.username,
         'contact_number': request.admin_user.contact_number,
         'name': request.admin_user.name,
         'email': request.admin_user.email,
     }
-    
+
     return Response({'success': True, 'decoded_data': decoded_data}, status=status.HTTP_200_OK)
 
 

@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import ManagerBankView, ManagerBankUpdateDeleteView
+
+from .views import ManagerBankUpdateDeleteView, ManagerBankView
 
 urlpatterns = [
     path('all/', ManagerBankView.as_view()),

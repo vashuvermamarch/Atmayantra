@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import ManagerDocsView, ManagerDocControlView
+
+from .views import ManagerDocControlView, ManagerDocsView
 
 urlpatterns = [
     path('all/', ManagerDocsView.as_view()),

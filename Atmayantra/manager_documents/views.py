@@ -1,10 +1,10 @@
-from rest_framework.views import APIView
 from authapp.decorators import login_required
-from rest_framework.response import Response
 from django.http import HttpResponse
+from manager_personal_details.models import ManagerPersonalDetails
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import ManagerDocument
-from manager_personal_details.models import ManagerPersonalDetails
 
 
 # =========================================================

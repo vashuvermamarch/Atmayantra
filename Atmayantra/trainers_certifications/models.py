@@ -1,6 +1,7 @@
 from django.db import models
 from trainers_personal_detials.models import TrainerPersonalDetails
 
+
 class TrainerCertification(models.Model):
     trainer = models.ForeignKey(
         TrainerPersonalDetails,

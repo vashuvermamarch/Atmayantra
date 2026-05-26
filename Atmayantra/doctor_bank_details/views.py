@@ -1,27 +1,21 @@
 import base64
-import uuid
-from datetime import datetime
+import logging
+import mimetypes
+
+from Atmayantra.utils import api_response
+from common.permissions import IsAuthenticatedOrPostOnly
 from django.core.cache import cache
-from django.core.files.base import ContentFile
 from django.db import transaction
 from django.http import Http404, HttpResponse
-import mimetypes
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.permissions import IsAuthenticated
-
-from doctor_personal_details.serializers import DoctorPersonalDetailsWriteSerializer
-from doctor_certification.serializers import DoctorCertificationSerializer
-from doctor_documents.serializers import DoctorDocumentSerializer
 from doctor_certification.models import DoctorCertification
 from doctor_documents.models import DoctorDocument, DoctorPersonalDetails
 from doctor_personal_details.models import DoctorPersonalDetails
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
+
 from .models import DoctorBankDetails
 from .serializers import DoctorBankDetailsReadSerializer, DoctorBankDetailsWriteSerializer
-from Atmayantra.utils import api_response
-from common.permissions import IsAuthenticatedOrPostOnly
-import logging
 
 logger = logging.getLogger(__name__)
 from doctor_personal_details.models import DoctorProfilePhoto
@@ -172,7 +166,7 @@ class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if not instance.bank_qr_code:
             return api_response(False, "QR code not found.", status_code=status.HTTP_404_NOT_FOUND)
-        
+
         try:
             try:
                 # The bank_qr_code field might contain the base64 data URI scheme

@@ -1,21 +1,19 @@
-from rest_framework import viewsets, status
+import logging
+from datetime import datetime, timedelta
+from random import randint
+
+import jwt
+from Atmayantra.utils import api_response
+from django.conf import settings
+from django.core.cache import cache
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from django.core.cache import cache
-from django.conf import settings
-
-from .serializers import UserSerializer
-from .models import User, UserRefreshToken, SignupRefreshToken
-
-from random import randint
-from Atmayantra.utils import api_response
-
-import logging
-import jwt
-from datetime import datetime, timedelta
 
 # ✅ USE CUSTOM TOKEN
 from .custom_tokens import CustomRefreshToken
+from .models import SignupRefreshToken, User, UserRefreshToken
+from .serializers import UserSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +149,7 @@ class AuthViewSet(viewsets.GenericViewSet):
                 user = User.objects.get(phone_number=phone_number)
                 if user.user_type == User.UserType.MANAGER:
                     return api_response(False, "Managers must log in with their username.", status.HTTP_403_FORBIDDEN)
-                
+
                 # Verify signup_token
                 try:
                     decoded = jwt.decode(signup_token, settings.SECRET_KEY, algorithms=["HS256"])
@@ -161,7 +159,7 @@ class AuthViewSet(viewsets.GenericViewSet):
                     return api_response(False, "Signup token has expired. Please refresh it.", status.HTTP_403_FORBIDDEN)
                 except:
                     return api_response(False, "Invalid signup token.", status.HTTP_403_FORBIDDEN)
-                    
+
             except User.DoesNotExist:
                 return api_response(False, "User not found with this phone number.", status.HTTP_404_NOT_FOUND)
             id_key = phone_number
@@ -304,7 +302,7 @@ class AuthViewSet(viewsets.GenericViewSet):
 
             # 2. Decode and verify the refresh token itself
             decoded = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=["HS256"])
-            
+
             if decoded.get("type") != "signup_refresh":
                 return api_response(False, "Invalid token type.", status.HTTP_400_BAD_REQUEST)
 

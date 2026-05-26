@@ -1,15 +1,16 @@
 from django.urls import path
+
 from .views import (
     DoctorPersonalDetailsView,
-    ProfilePhotoViewerView,
     DoctorProfilePhotoDownloadView,
-    DoctorProfilePhotoView
+    DoctorProfilePhotoView,
+    ProfilePhotoViewerView,
 )
 
 urlpatterns = [
     # Endpoint for creating a new record (POST)
     path('', DoctorPersonalDetailsView.as_view(), name='doctor-personal-details-create'),
-    
+
     # Endpoint for getting all records (GET)
     path('all/', DoctorPersonalDetailsView.as_view(), name='doctor-personal-details-all'),
 

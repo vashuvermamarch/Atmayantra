@@ -1,5 +1,7 @@
 from django.contrib import admin
+
 from .models import TrainerDocument
+
 
 @admin.register(TrainerDocument)
 class TrainerDocumentAdmin(admin.ModelAdmin):

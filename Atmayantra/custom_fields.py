@@ -1,7 +1,7 @@
 import base64
-import uuid
-from django.core.files.base import ContentFile
+
 from rest_framework import serializers
+
 
 class Base64StringFileField(serializers.Field):
     """

@@ -1,7 +1,9 @@
 import base64
 import uuid
+
 from django.core.files.base import ContentFile
 from rest_framework import serializers
+
 
 class Base64FileField(serializers.FileField):
     """
@@ -34,7 +36,7 @@ class Base64FileField(serializers.FileField):
     def to_representation(self, value):
         if not value:
             return None
-        
+
         try:
             with value.open('rb') as f:
                 return base64.b64encode(f.read()).decode()

@@ -1,6 +1,8 @@
-from rest_framework import serializers
-from .models import DoctorPersonalDetails, DoctorProfilePhoto
 from common.fields import Base64StringFileField
+from rest_framework import serializers
+
+from .models import DoctorPersonalDetails, DoctorProfilePhoto
+
 
 class DoctorProfilePhotoSerializer(serializers.ModelSerializer):
     photo_data = Base64StringFileField(required=True)

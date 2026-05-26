@@ -1,10 +1,13 @@
+import datetime
 from functools import wraps
-from rest_framework.response import Response
-from rest_framework import status
+
 import jwt
 from django.conf import settings
+from rest_framework import status
+from rest_framework.response import Response
+
 from .models import AdminUser
-import datetime
+
 
 def admin_login_required(view_func):
     @wraps(view_func)
@@ -18,7 +21,7 @@ def admin_login_required(view_func):
         try:
             # Decode the token to check for expiration
             decoded = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-            
+
             # Check if it's an access token
             if decoded.get('type') != 'access':
                 return Response({'success': False, 'error': 'Invalid token type.'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -65,7 +68,7 @@ def admin_login_required(view_func):
 
                 # Re-attach user to the request and proceed
                 request.admin_user = user
-                
+
                 # Call the view function and add the new token to the response
                 response = view_func(request, *args, **kwargs)
                 response.data['new_access_token'] = new_access_token

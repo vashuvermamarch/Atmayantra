@@ -1,6 +1,7 @@
 from django.db import models
 from doctor_personal_details.models import DoctorPersonalDetails
 
+
 class DoctorBankDetails(models.Model):
     doctor = models.OneToOneField(
         DoctorPersonalDetails,

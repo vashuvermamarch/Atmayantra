@@ -1,0 +1,95 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "staging", "tryone" ]
+  pull_request:
+    branches: [ "main", "staging", "tryone" ]
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff Linter
+        run: ruff check .
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django Tests
+        env:
+          SECRET_KEY: 'test-secret-key-for-ci-pipeline'
+          DEBUG: 'True'
+        run: |
+          cd Atmayantra
+          python manage.py test
+
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+
+    steps:
+      - name: SSH to EC2 and Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            echo "Starting deployment to EC2..."
+            PROJECT_PATH="${{ secrets.EC2_PROJECT_PATH || '/home/ec2-user/backend' }}"
+            SERVICE_NAME="${{ secrets.EC2_SERVICE_NAME || 'atmayantra' }}"
+            
+            cd "$PROJECT_PATH"
+            
+            # Fetch latest changes
+            git fetch origin
+            git checkout ${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }}
+            
+            # Activate Virtualenv and run build steps
+            if [ -f "venv/bin/activate" ]; then
+              source venv/bin/activate
+            elif [ -f ".venv/bin/activate" ]; then
+              source .venv/bin/activate
+            fi
+            
+            bash build.sh
+            
+            # Restart application service
+            sudo systemctl restart "$SERVICE_NAME"
+            
+            echo "Deployment completed successfully!"

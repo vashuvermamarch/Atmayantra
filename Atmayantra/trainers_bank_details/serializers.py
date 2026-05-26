@@ -1,5 +1,7 @@
 from rest_framework import serializers
+
 from .models import TrainerBankDetails
+
 
 class TrainerBankDetailsSerializer(serializers.ModelSerializer):
     """
@@ -7,7 +9,7 @@ class TrainerBankDetailsSerializer(serializers.ModelSerializer):
     """
     # Field for uploading the QR code file
     qr_code_upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    
+
     # Field for confirming the account number, not stored in the database
     confirm_account_number = serializers.CharField(write_only=True, required=True)
 

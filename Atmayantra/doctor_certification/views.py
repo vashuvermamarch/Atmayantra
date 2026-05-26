@@ -1,16 +1,17 @@
 import base64
-from django.http import HttpResponse
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from common.permissions import IsAuthenticatedOrPostOnly
 from django.core.cache import cache
+from django.http import HttpResponse
+from doctor_personal_details.models import DoctorPersonalDetails
+from rest_framework import status
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 from .models import DoctorCertification
 from .serializers import DoctorCertificationSerializer
-from doctor_personal_details.models import DoctorPersonalDetails
-from common.permissions import IsAuthenticatedOrPostOnly
 
 
 class DoctorCertificationView(APIView):
@@ -48,7 +49,7 @@ class DoctorCertificationView(APIView):
         personal_details_cache_key = f"doctor_personal_details_{contact_number}"
         if not cache.get(personal_details_cache_key):
             return Response({
-                "success": False, 
+                "success": False,
                 "message": "Personal details not found in cache. Please complete step 1 properly."
             }, status=status.HTTP_400_BAD_REQUEST)
 

@@ -1,8 +1,9 @@
-from rest_framework.views import APIView
 from authapp.decorators import login_required
-from rest_framework.response import Response
-from .models import ManagerBankDetails
 from manager_personal_details.models import ManagerPersonalDetails
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import ManagerBankDetails
 
 
 class ManagerBankView(APIView):

@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class DoctorPersonalDetails(models.Model):
     contact_number = models.CharField(max_length=15, primary_key=True)
     full_name = models.CharField(max_length=100)

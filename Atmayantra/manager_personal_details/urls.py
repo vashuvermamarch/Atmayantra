@@ -1,10 +1,6 @@
 from django.urls import path
-from .views import (
-    ManagerPersonalView,
-    ManagerPhotoView,
-    ManagerPhotoDownloadView,
-    ManagerUpdateDeleteView
-)
+
+from .views import ManagerPersonalView, ManagerPhotoDownloadView, ManagerPhotoView, ManagerUpdateDeleteView
 
 urlpatterns = [
     path('all/', ManagerPersonalView.as_view()),

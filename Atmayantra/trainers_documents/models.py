@@ -1,6 +1,7 @@
 from django.db import models
 from trainers_personal_detials.models import TrainerPersonalDetails
 
+
 class TrainerDocument(models.Model):
     """
     Stores documents for a trainer, like Aadhar, PAN card, etc.

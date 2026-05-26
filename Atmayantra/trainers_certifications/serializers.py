@@ -1,5 +1,7 @@
 from rest_framework import serializers
+
 from .models import TrainerCertification
+
 
 class TrainerCertificationSerializer(serializers.ModelSerializer):
     yoga_certified = serializers.BooleanField(required=False)

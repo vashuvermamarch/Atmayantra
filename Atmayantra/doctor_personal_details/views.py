@@ -1,24 +1,26 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.core.cache import cache
-from django.http import HttpResponse
-from django.utils.decorators import method_decorator
-import uuid
 import base64
 import mimetypes
-import logging
+import uuid
 
-from .models import DoctorPersonalDetails, DoctorProfilePhoto
-from .serializers import DoctorPersonalDetailsSerializer, DoctorProfilePhotoSerializer, DoctorProfilePhotoWriteSerializer, DoctorPersonalDetailsWriteSerializer
-from authapp.decorators import login_required
 from Atmayantra.utils import api_response
 from common.permissions import IsAuthenticatedOrPostOnly
+from django.core.cache import cache
+from django.http import HttpResponse
+from rest_framework import status
+from rest_framework.views import APIView
+
+from .models import DoctorPersonalDetails, DoctorProfilePhoto
+from .serializers import (
+    DoctorPersonalDetailsSerializer,
+    DoctorPersonalDetailsWriteSerializer,
+    DoctorProfilePhotoWriteSerializer,
+)
 
 CACHE_TIMEOUT = 86400  # 24 hours
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+
 
 class DoctorPersonalDetailsView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -291,7 +293,7 @@ class DoctorProfilePhotoDownloadView(APIView):
                 image_data = base64.b64decode(photo.photo_data)
                 content_type = mimetypes.guess_type(f"photo.{contact_number}")[0] or 'image/jpeg'
                 extension = mimetypes.guess_extension(content_type) or '.jpg'
-            
+
             response = HttpResponse(image_data, content_type=content_type)
             response['Content-Disposition'] = f'attachment; filename="profile_{contact_number}{extension}"'
             return response
