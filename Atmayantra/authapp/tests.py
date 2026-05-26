@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 
+# Trigger new CI/CD workflow run
 class UserModelTests(TestCase):
     def test_create_user(self):
         User = get_user_model()
