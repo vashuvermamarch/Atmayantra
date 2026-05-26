@@ -5,6 +5,7 @@ on:
     branches: [ "main", "staging", "tryone" ]
   pull_request:
     branches: [ "main", "staging", "tryone" ]
+  workflow_dispatch:
 
 jobs:
   lint:
