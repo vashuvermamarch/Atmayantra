@@ -17,20 +17,28 @@ class DoctorProfilePhotoWriteSerializer(serializers.Serializer):
 
 
 class DoctorPersonalDetailsWriteSerializer(serializers.ModelSerializer):
+    profile_photo = Base64StringFileField(required=False, allow_null=True)
 
     class Meta:
         model = DoctorPersonalDetails
         fields = [
             'contact_number', 'full_name', 'date_of_birth', 'gender',
-            'email', 'state', 'city', 'pincode', 'spoken_language'
+            'email', 'state', 'city', 'pincode', 'spoken_language',
+            'profile_photo'
         ]
 
     def create(self, validated_data):
+        profile_photo = validated_data.pop('profile_photo', None)
         # Use update_or_create to handle both creation and updates gracefully.
         doctor, created = DoctorPersonalDetails.objects.update_or_create(
             contact_number=validated_data['contact_number'],
             defaults=validated_data
         )
+        if profile_photo:
+            DoctorProfilePhoto.objects.update_or_create(
+                doctor=doctor,
+                defaults={'photo_data': profile_photo['content']}
+            )
         return doctor
 
     def update(self, instance, validated_data):

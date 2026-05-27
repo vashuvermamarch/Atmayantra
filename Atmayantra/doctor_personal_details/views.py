@@ -20,18 +20,20 @@ CACHE_TIMEOUT = 86400  # 24 hours
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 
 class DoctorPersonalDetailsView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrPostOnly]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
     """
-    API View for managing Doctor Personal Details (excluding profile photo).
+    API View for managing Doctor Personal Details (including profile photo).
     """
 
     def post(self, request):
         """
-        Creates doctor personal details.
+        Creates doctor personal details and caches profile photo.
         """
         serializer = DoctorPersonalDetailsWriteSerializer(data=request.data)
         if serializer.is_valid():
@@ -40,9 +42,16 @@ class DoctorPersonalDetailsView(APIView):
             if not contact_number:
                 return api_response(False, "Contact number is required.", status_code=status.HTTP_400_BAD_REQUEST)
 
+            profile_photo = validated_data.pop('profile_photo', None)
+
             # Save to cache instead of database
             cache_key = f"doctor_personal_details_{contact_number}"
             cache.set(cache_key, validated_data, timeout=CACHE_TIMEOUT)
+
+            # Cache profile photo if uploaded
+            if profile_photo:
+                photo_cache_key = f"doctor_profile_photo_{contact_number}"
+                cache.set(photo_cache_key, profile_photo['content'], timeout=CACHE_TIMEOUT)
 
             # Create a Session Mapping for the Frontend
             temp_id = uuid.uuid4().hex
@@ -289,6 +298,8 @@ class DoctorProfilePhotoDownloadView(APIView):
                 image_data = base64.b64decode(encoded)
                 content_type = header.split(':')[1].split(';')[0]
                 extension = content_type.split('/')[-1]
+                if extension and not extension.startswith('.'):
+                    extension = f".{extension}"
             except (ValueError, IndexError):
                 image_data = base64.b64decode(photo.photo_data)
                 content_type = mimetypes.guess_type(f"photo.{contact_number}")[0] or 'image/jpeg'
