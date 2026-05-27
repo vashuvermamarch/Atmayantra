@@ -137,27 +137,31 @@ class AuthViewSet(viewsets.GenericViewSet):
         password = request.data.get("password")
         signup_token = request.data.get("signup_token")
 
-        if not password:
-            return api_response(False, "Password is required.", status.HTTP_400_BAD_REQUEST)
-
         # 1. IDENTIFY USER
         if username:
-            # Manager Case
+            # Manager Case - Requires password
+            if not password:
+                return api_response(False, "Password is required.", status_code=status.HTTP_400_BAD_REQUEST)
             try:
                 user = User.objects.get(username=username)
                 if user.user_type != User.UserType.MANAGER:
                     return api_response(False, "Unauthorized user type. Managers must use username, others must use phone number.", status.HTTP_403_FORBIDDEN)
             except User.DoesNotExist:
                 return api_response(False, "Manager not found with this username.", status.HTTP_404_NOT_FOUND)
+
+            # Check password for Manager
+            if not user.check_password(password):
+                return api_response(False, "Invalid password.", status_code=status.HTTP_400_BAD_REQUEST)
+
             id_key = username
         elif phone_number:
-            # Doctor/Trainer Case
+            # Doctor/Trainer Case - No password required, only signup_token
             if not signup_token:
-                return api_response(False, "signup_token is required for this role.", status.HTTP_400_BAD_REQUEST)
+                return api_response(False, "signup_token is required for this role.", status_code=status.HTTP_400_BAD_REQUEST)
             try:
                 user = User.objects.get(phone_number=phone_number)
                 if user.user_type == User.UserType.MANAGER:
-                    return api_response(False, "Managers must log in with their username.", status.HTTP_403_FORBIDDEN)
+                    return api_response(False, "Managers must log in with their username.", status_code=status.HTTP_403_FORBIDDEN)
 
                 # Verify signup_token
                 try:
@@ -174,10 +178,6 @@ class AuthViewSet(viewsets.GenericViewSet):
             id_key = phone_number
         else:
             return api_response(False, "Identification (username or phone_number) required.", status.HTTP_400_BAD_REQUEST)
-
-        # 2. CHECK PASSWORD
-        if not user.check_password(password):
-            return api_response(False, "Invalid password.", status.HTTP_400_BAD_REQUEST)
 
         # 3. VERIFICATION CHECKS
         if not user.is_verified:
