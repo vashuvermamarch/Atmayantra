@@ -1,12 +1,12 @@
-from django.core.cache import cache
-from django.contrib.auth import get_user_model
-from django.core.files.uploadedfile import SimpleUploadedFile
-from rest_framework.test import APITestCase
-from rest_framework import status
-from django.urls import reverse
 import base64
 
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from doctor_personal_details.models import DoctorPersonalDetails, DoctorProfilePhoto
+from rest_framework import status
+from rest_framework.test import APITestCase
+
 
 class DoctorPersonalDetailsTests(APITestCase):
     def setUp(self):

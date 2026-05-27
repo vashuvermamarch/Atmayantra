@@ -1,23 +1,24 @@
+
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from rest_framework.test import APITestCase
-from rest_framework import status
-import base64
-
-from doctor_personal_details.models import DoctorPersonalDetails, DoctorProfilePhoto
 from doctor_certification.models import DoctorCertification
 from doctor_documents.models import DoctorDocument
+from doctor_personal_details.models import DoctorPersonalDetails, DoctorProfilePhoto
+from rest_framework import status
+from rest_framework.test import APITestCase
+
 from doctor_bank_details.models import DoctorBankDetails
+
 
 class DoctorOnboardingStep4Tests(APITestCase):
     def setUp(self):
         cache.clear()
         self.contact_number = "1234567890"
         self.temp_id = "test_temp_id_step4"
-        
+
         # 1. Setup session temp_id -> contact_number mapping
         cache.set(f"doctor_onboarding_session_{self.temp_id}", self.contact_number, timeout=3600)
-        
+
         # 2. Setup cached personal details (Step 1)
         self.personal_data = {
             "contact_number": self.contact_number,
@@ -31,7 +32,7 @@ class DoctorOnboardingStep4Tests(APITestCase):
             "spoken_language": "English, Marathi"
         }
         cache.set(f"doctor_personal_details_{self.contact_number}", self.personal_data, timeout=3600)
-        
+
         # 3. Setup cached certification details (Step 2)
         self.certification_data = {
             "highest_degree": "MBBS",
@@ -48,7 +49,7 @@ class DoctorOnboardingStep4Tests(APITestCase):
             "license_pdf": "dummy_license_b64",
         }
         cache.set(f"doctor_certification_{self.contact_number}", self.certification_data, timeout=3600)
-        
+
         # 4. Setup cached documents (Step 3)
         self.documents_data = [
             {
@@ -89,7 +90,7 @@ class DoctorOnboardingStep4Tests(APITestCase):
             "account_type": "Savings",
             "bank_qr_code": self.mock_qr
         }
-        
+
         response = self.client.post("/api/doctors/bank-details/", payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["status"], "success")
@@ -113,7 +114,7 @@ class DoctorOnboardingStep4Tests(APITestCase):
             "account_type": "Savings",
             "bank_qr_code": self.mock_qr
         }
-        
+
         response = self.client.post("/api/doctors/bank-details/", payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status"], "success")

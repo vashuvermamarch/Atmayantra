@@ -18,9 +18,9 @@ from .serializers import (
 
 CACHE_TIMEOUT = 86400  # 24 hours
 
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 
 class DoctorPersonalDetailsView(APIView):
