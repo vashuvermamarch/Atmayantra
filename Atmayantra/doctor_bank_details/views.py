@@ -62,8 +62,6 @@ class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
 
         profile_photo_cache_key = f"doctor_profile_photo_{contact_number}"
         profile_photo_data = cache.get(profile_photo_cache_key)
-        if not profile_photo_data:
-            return api_response(False, "Profile photo (step 1) is missing from cache.", status_code=status.HTTP_400_BAD_REQUEST)
 
         certification_cache_key = f"doctor_certification_{contact_number}"
         certification_data = cache.get(certification_cache_key)
@@ -88,8 +86,9 @@ class DoctorBankDetailsViewSet(viewsets.ModelViewSet):
                 # Save personal details
                 doctor = DoctorPersonalDetails.objects.create(**personal_details_data)
 
-                # Save profile photo
-                DoctorProfilePhoto.objects.create(doctor=doctor, photo_data=profile_photo_data)
+                # Save profile photo if provided
+                if profile_photo_data:
+                    DoctorProfilePhoto.objects.create(doctor=doctor, photo_data=profile_photo_data)
 
                 # Save certification details
                 certification_data.pop('doctor', None)
