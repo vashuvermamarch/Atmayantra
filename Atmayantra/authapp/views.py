@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 class AuthViewSet(viewsets.GenericViewSet):
     serializer_class = UserSerializer
 
+    def get_authenticators(self):
+        # Only run authentication for protected actions
+        if self.action in ['logout', 'protected_view']:
+            return super().get_authenticators()
+        return []
+
     # ------------------------------------------------------------
     # 1️⃣ SIGNUP → SEND OTP
     # ------------------------------------------------------------
