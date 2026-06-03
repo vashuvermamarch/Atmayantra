@@ -19,3 +19,7 @@ urlpatterns = [
     path('manager/step2/<int:temp_id>/', views.manager_step2_documents),
     path('manager/step3/<int:temp_id>/', views.manager_step3_finalize),
 ]
+
+
+
+

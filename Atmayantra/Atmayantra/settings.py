@@ -52,21 +52,29 @@ INSTALLED_APPS=[
     "authapp",
     "contactapp",
 
-    "doctor_personal_details",
-    "doctor_certification",
-    "doctor_documents",
-    "doctor_bank_details",
-
-    "trainers_personal_detials",
-    "trainers_certifications",
-    "trainers_documents",
-    "trainers_bank_details",
-
     "admin_auth",
 
-    "manager_personal_details",
-    "manager_documents",
-    "manager_bank_details",
+    "managers_profile",
+    "managers_profile.manager_personal_details",
+    "managers_profile.manager_documents",
+    "managers_profile.manager_bank_details",
+
+    # Add me here
+    "trainers_profile",
+    "doctors_profile.doctor_sessions",
+    "doctors_profile.doctor_personal_details",
+    "doctors_profile.doctor_certification",
+    "doctors_profile.doctor_documents",
+    "doctors_profile.doctor_bank_details",
+    "trainers_profile.trainers_personal_detials",
+    "trainers_profile.trainers_certifications",
+    "trainers_profile.trainers_documents",
+    "trainers_profile.trainers_bank_details",
+    "physio_profile",
+    "physio_profile.physio_personal_details",
+    "physio_profile.physio_certifications",
+    "physio_profile.physio_documents",
+    "physio_profile.physio_bank_details",
 ]
 
 
@@ -186,7 +194,7 @@ AUTH_USER_MODEL="authapp.User"
 REST_FRAMEWORK={
     "DEFAULT_AUTHENTICATION_CLASSES":(
         "admin_auth.authentication.AdminJWTAuthentication",
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "authapp.authentication.SoftJWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PARSER_CLASSES":(
@@ -207,6 +215,8 @@ SIMPLE_JWT={
     "REFRESH_TOKEN_LIFETIME":timedelta(
         days=int(os.environ.get("SIMPLE_JWT_REFRESH_DAYS",7))
     ),
+    # Code Add me here
+    "USER_AUTHENTICATION_RULE": "authapp.authentication.allow_any_user",
 }
 
 

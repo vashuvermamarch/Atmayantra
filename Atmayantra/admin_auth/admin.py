@@ -8,3 +8,4 @@ class AdminUserAdmin(admin.ModelAdmin):
     search_fields = ("contact_number", "name", "email")
     list_filter = ("is_verified",)
     ordering = ("contact_number",)
+

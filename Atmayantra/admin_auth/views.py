@@ -25,9 +25,9 @@ from .temp_manager_models import (
     TempManagerBank
 )
 
-from manager_personal_details.models import ManagerPersonalDetails
-from manager_documents.models import ManagerDocument
-from manager_bank_details.models import ManagerBankDetails
+from managers_profile.manager_personal_details.models import ManagerPersonalDetails
+from managers_profile.manager_documents.models import ManagerDocument
+from managers_profile.manager_bank_details.models import ManagerBankDetails
 import random
 from authapp.models import User
 

@@ -79,31 +79,17 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         user = serializer.save(is_verified=True)
 
+        # Code change with me
         if user.user_type != User.UserType.USER:
             user.is_active = False
         user.save()
 
         cache.delete(f'otp_signup_{phone_number}')
 
-        # Signup Tokens
-        signup_payload = {
-            "username": user.username,
-            "phone_number": user.phone_number,
-            "user_type": user.user_type,
-            "iat": datetime.utcnow()
-        }
-
-        signup_token = jwt.encode(signup_payload, settings.SECRET_KEY, algorithm="HS256")
-
-        signup_refresh_payload = {
-            "username": user.username,
-            "phone_number": user.phone_number,
-            "user_type": user.user_type,
-            "type": "signup_refresh",
-            "iat": datetime.utcnow()
-        }
-
-        signup_refresh_token = jwt.encode(signup_refresh_payload, settings.SECRET_KEY, algorithm="HS256")
+        # Signup Tokens using SimpleJWT standard
+        refresh = CustomRefreshToken.for_user(user)
+        signup_token = str(refresh.access_token)
+        signup_refresh_token = str(refresh)
 
         SignupRefreshToken.objects.create(user=user, token=signup_refresh_token)
 
@@ -170,14 +156,11 @@ class AuthViewSet(viewsets.GenericViewSet):
         except:
             return api_response(False, "Invalid signup token.", status.HTTP_400_BAD_REQUEST)
 
-        if decoded["username"] != user.username:
+        if str(decoded.get("user_id")) != str(user.id):
             return api_response(False, "Signup token mismatch.", status.HTTP_400_BAD_REQUEST)
 
         if not user.is_verified:
             return api_response(False, "User not verified.", status.HTTP_403_FORBIDDEN)
-
-        if not user.is_active:
-            return api_response(False, "User not active.", status.HTTP_403_FORBIDDEN)
 
         refresh = CustomRefreshToken.for_user(user)
 
@@ -245,3 +228,4 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         except User.DoesNotExist:
             return api_response(False, "User not found", status.HTTP_404_NOT_FOUND)
+
