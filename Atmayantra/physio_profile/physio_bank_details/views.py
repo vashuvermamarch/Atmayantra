@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.core.cache import cache
 from django.db import transaction
+import base64
 
 from .models import PhysioBankDetails
 from .serializers import PhysioBankDetailsSerializer
@@ -30,7 +31,7 @@ def manage_bank_details(request):
     if request.method == 'GET':
         try:
             bank = PhysioBankDetails.objects.get(user=request.user)
-            serializer = PhysioBankDetailsSerializer(bank)
+            serializer = PhysioBankDetailsSerializer(bank, context={'request': request})
             return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
         except PhysioBankDetails.DoesNotExist:
             return Response({"success": True, "data": {}}, status=status.HTTP_200_OK)
@@ -62,8 +63,11 @@ def manage_bank_details(request):
                 s1.is_valid(raise_exception=True)
                 pd_instance = s1.save()
                 if 'profile_photo_b64' in step1:
-                    pd_instance.profile_photo = b64_to_file(step1['profile_photo_b64'])
-                    pd_instance.save()
+                    photo_b64 = step1['profile_photo_b64']
+                    if photo_b64:
+                        pd_instance.profile_photo = base64.b64decode(photo_b64['data'])
+                        pd_instance.profile_photo_mimetype = photo_b64['content_type']
+                        pd_instance.save()
 
                 # 2. Certification
                 cert_obj, _ = PhysioCertification.objects.get_or_create(user=request.user)
@@ -81,7 +85,10 @@ def manage_bank_details(request):
                 for f_key in ['aadhar_card_front', 'aadhar_card_back', 'pancard', 'resume_cv', 'certificate']:
                     cache_key = f"{f_key}_b64"
                     if cache_key in step3:
-                        setattr(doc_instance, f_key, b64_to_file(step3[cache_key]))
+                        b64_dict = step3[cache_key]
+                        if b64_dict:
+                            setattr(doc_instance, f_key, base64.b64decode(b64_dict['data']))
+                            setattr(doc_instance, f"{f_key}_mimetype", b64_dict['content_type'])
                 doc_instance.save()
 
                 # 4. Bank Details (Current Step)
@@ -90,7 +97,8 @@ def manage_bank_details(request):
                 s4.is_valid(raise_exception=True)
                 bank_instance = s4.save()
                 if step4_file:
-                    bank_instance.upload_bank_qr_code = step4_file
+                    bank_instance.upload_bank_qr_code = step4_file.read()
+                    bank_instance.upload_bank_qr_code_mimetype = step4_file.content_type
                     bank_instance.save()
                     
             # Clear Cache!
@@ -108,3 +116,20 @@ def manage_bank_details(request):
                 "success": False, 
                 "message": f"Validation/Database Error: {str(e)}"
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+from django.http import HttpResponse
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def view_bank_qr_code(request):
+    try:
+        bank = PhysioBankDetails.objects.get(user=request.user)
+        if bank.upload_bank_qr_code:
+            return HttpResponse(
+                bank.upload_bank_qr_code,
+                content_type=bank.upload_bank_qr_code_mimetype or 'image/jpeg'
+            )
+    except PhysioBankDetails.DoesNotExist:
+        pass
+    return Response({"error": "QR code not found."}, status=status.HTTP_404_NOT_FOUND)

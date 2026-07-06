@@ -25,7 +25,7 @@ def manage_documentation(request):
         
         try:
             docs = PhysioDocumentation.objects.get(user=request.user)
-            serializer = PhysioDocumentationSerializer(docs)
+            serializer = PhysioDocumentationSerializer(docs, context={'request': request})
             return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
         except PhysioDocumentation.DoesNotExist:
             return Response({"success": True, "data": {}}, status=status.HTTP_200_OK)
@@ -48,3 +48,21 @@ def manage_documentation(request):
             "success": True, 
             "message": "Step 3 complete. Documents temporarily saved."
         }, status=status.HTTP_200_OK)
+
+
+from django.http import HttpResponse
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def view_document_file(request, field_name):
+    if request.user.user_type != 'Physiotherapist':
+        return Response({"error": "Only Physiotherapists can access this."}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        docs = PhysioDocumentation.objects.get(user=request.user)
+        file_data = getattr(docs, field_name, None)
+        mimetype = getattr(docs, f"{field_name}_mimetype", None)
+        if file_data:
+            return HttpResponse(file_data, content_type=mimetype or 'application/octet-stream')
+    except PhysioDocumentation.DoesNotExist:
+        pass
+    return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)

@@ -30,7 +30,7 @@ def manage_personal_details(request):
         # Else check DB
         try:
             details = PhysioPersonalDetails.objects.get(user=request.user)
-            serializer = PhysioPersonalDetailsSerializer(details)
+            serializer = PhysioPersonalDetailsSerializer(details, context={'request': request})
             return Response({"success": True, "message": "Fetched from Database", "data": serializer.data}, status=status.HTTP_200_OK)
         except PhysioPersonalDetails.DoesNotExist:
             return Response({"success": True, "data": {}}, status=status.HTTP_200_OK)
@@ -55,3 +55,22 @@ def manage_personal_details(request):
             "success": True, 
             "message": "Step 1 complete. Data temporarily saved."
         }, status=status.HTTP_200_OK)
+
+
+from django.http import HttpResponse
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def view_profile_photo(request):
+    if request.user.user_type != 'Physiotherapist':
+        return Response({"error": "Only Physiotherapists can access this."}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        details = PhysioPersonalDetails.objects.get(user=request.user)
+        if details.profile_photo:
+            return HttpResponse(
+                details.profile_photo,
+                content_type=details.profile_photo_mimetype or 'image/jpeg'
+            )
+    except PhysioPersonalDetails.DoesNotExist:
+        pass
+    return Response({"error": "Profile photo not found."}, status=status.HTTP_404_NOT_FOUND)

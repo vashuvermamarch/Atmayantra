@@ -12,7 +12,8 @@ class PhysioPersonalDetails(models.Model):
     city = models.CharField(max_length=100, null=True, blank=True)
     pincode = models.CharField(max_length=10, null=True, blank=True)
     language = models.CharField(max_length=100, null=True, blank=True)
-    profile_photo = models.ImageField(upload_to='physio_profiles/', null=True, blank=True)
+    profile_photo = models.BinaryField(null=True, blank=True)
+    profile_photo_mimetype = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
