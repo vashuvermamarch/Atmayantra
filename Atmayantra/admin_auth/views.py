@@ -7,9 +7,9 @@ from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
 from django.db import transaction
-from manager_bank_details.models import ManagerBankDetails
-from manager_documents.models import ManagerDocument
-from manager_personal_details.models import ManagerPersonalDetails
+from managers_profile.manager_bank_details.models import ManagerBankDetails
+from managers_profile.manager_documents.models import ManagerDocument
+from managers_profile.manager_personal_details.models import ManagerPersonalDetails
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import FormParser, MultiPartParser
