@@ -1,4 +1,5 @@
 from django.db import models
+
 from doctors_profile.doctor_personal_details.models import DoctorPersonalDetails
 
 

@@ -7,12 +7,13 @@ from common.permissions import IsAuthenticatedOrPostOnly
 from django.core.cache import cache
 from django.db import transaction
 from django.http import Http404, HttpResponse
-from doctors_profile.doctor_certification.models import DoctorCertification
-from doctors_profile.doctor_documents.models import DoctorDocument, DoctorPersonalDetails
-from doctors_profile.doctor_personal_details.models import DoctorPersonalDetails
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
+
+from doctors_profile.doctor_certification.models import DoctorCertification
+from doctors_profile.doctor_documents.models import DoctorDocument, DoctorPersonalDetails
+from doctors_profile.doctor_personal_details.models import DoctorPersonalDetails
 
 from .models import DoctorBankDetails
 from .serializers import DoctorBankDetailsReadSerializer, DoctorBankDetailsWriteSerializer

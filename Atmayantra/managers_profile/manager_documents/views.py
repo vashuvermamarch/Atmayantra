@@ -1,8 +1,9 @@
 from authapp.decorators import login_required
 from django.http import HttpResponse
-from managers_profile.manager_personal_details.models import ManagerPersonalDetails
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from managers_profile.manager_personal_details.models import ManagerPersonalDetails
 
 from .models import ManagerDocument
 

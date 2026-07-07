@@ -1,4 +1,5 @@
 from django.db import models
+
 from managers_profile.manager_personal_details.models import ManagerPersonalDetails
 
 

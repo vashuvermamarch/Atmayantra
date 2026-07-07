@@ -1,4 +1,5 @@
 from django.db import models
+
 from trainers_profile.trainers_personal_detials.models import TrainerPersonalDetails
 
 

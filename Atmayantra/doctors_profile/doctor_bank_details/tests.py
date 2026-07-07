@@ -1,13 +1,13 @@
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from doctors_profile.doctor_certification.models import DoctorCertification
-from doctors_profile.doctor_documents.models import DoctorDocument
-from doctors_profile.doctor_personal_details.models import DoctorPersonalDetails, DoctorProfilePhoto
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from doctors_profile.doctor_bank_details.models import DoctorBankDetails
+from doctors_profile.doctor_certification.models import DoctorCertification
+from doctors_profile.doctor_documents.models import DoctorDocument
+from doctors_profile.doctor_personal_details.models import DoctorPersonalDetails, DoctorProfilePhoto
 
 
 class DoctorOnboardingStep4Tests(APITestCase):
