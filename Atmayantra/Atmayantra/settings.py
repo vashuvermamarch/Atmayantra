@@ -89,6 +89,12 @@ INSTALLED_APPS=[
     "managers_profile.manager_personal_details",
     "managers_profile.manager_documents",
     "managers_profile.manager_bank_details",
+
+    "physio_profile",
+    "physio_profile.physio_personal_details",
+    "physio_profile.physio_certifications",
+    "physio_profile.physio_documents",
+    "physio_profile.physio_bank_details",
 ]
 
 

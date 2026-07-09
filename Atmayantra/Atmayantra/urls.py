@@ -40,5 +40,10 @@ urlpatterns = [
         path('managers/personal-details/', include('managers_profile.manager_personal_details.urls')),
         path('managers/documents/', include('managers_profile.manager_documents.urls')),
         path('managers/bank-details/', include('managers_profile.manager_bank_details.urls')),
+        path('physio/profile/', include('physio_profile.urls')),
+        path('physio/personal-details/', include('physio_profile.physio_personal_details.urls')),
+        path('physio/certifications/', include('physio_profile.physio_certifications.urls')),
+        path('physio/documents/', include('physio_profile.physio_documents.urls')),
+        path('physio/bank-details/', include('physio_profile.physio_bank_details.urls')),
     ]))
 ]
