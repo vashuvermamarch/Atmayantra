@@ -11,7 +11,7 @@ from .serializers import AdminVerifyOtpSerializer
 import random
 import jwt
 import datetime
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from authapp.models import User
 from .manager_onboarding_services import (
     generate_manager_password,
@@ -24,11 +24,9 @@ from .temp_manager_models import (
     TempManagerBank
 )
 
-from manager_personal_details.models import ManagerPersonalDetails
-from manager_documents.models import ManagerDocument
-from manager_bank_details.models import ManagerBankDetails
-import random
-from authapp.models import User
+from managers_profile.manager_personal_details.models import ManagerPersonalDetails
+from managers_profile.manager_documents.models import ManagerDocument
+from managers_profile.manager_bank_details.models import ManagerBankDetails
 
 def generate_unique_username(base_username):
     username = base_username
@@ -237,7 +235,6 @@ def refresh_token(request):
         return Response({'success': False, 'error': 'Invalid refresh token.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-from .decorators import admin_login_required
 
 # -----------------------------------------------------------
 # STEP 6: Decode JWT Token (GET request)

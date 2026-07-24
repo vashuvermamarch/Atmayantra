@@ -52,21 +52,21 @@ INSTALLED_APPS=[
     "authapp",
     "contactapp",
 
-    "doctor_personal_details",
-    "doctor_certification",
-    "doctor_documents",
-    "doctor_bank_details",
+    "doctors_profile.doctor_personal_details",
+    "doctors_profile.doctor_certification",
+    "doctors_profile.doctor_documents",
+    "doctors_profile.doctor_bank_details",
 
-    "trainers_personal_detials",
-    "trainers_certifications",
-    "trainers_documents",
-    "trainers_bank_details",
+    "trainers_profile.trainers_personal_detials",
+    "trainers_profile.trainers_certifications",
+    "trainers_profile.trainers_documents",
+    "trainers_profile.trainers_bank_details",
 
     "admin_auth",
 
-    "manager_personal_details",
-    "manager_documents",
-    "manager_bank_details",
+    "managers_profile.manager_personal_details",
+    "managers_profile.manager_documents",
+    "managers_profile.manager_bank_details",
 ]
 
 
